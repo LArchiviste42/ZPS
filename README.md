@@ -31,8 +31,6 @@ Deployment builds the commit pushed to the repo's `origin` remote, so push first
 
 ```bash
 git push -u origin main   # origin = github.com/LArchiviste42/ZPS
-# optional mirror to GitLab:
-# git remote add gitlab https://gitlab.com/LeGrosChatonFat/mistral-app.git && git push gitlab main
 mistral deploy --organization <your-org> --json   # add --workspace <ws> if several exist
 ```
 
