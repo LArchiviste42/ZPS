@@ -94,7 +94,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - Ne mentionne JAMAIS la protection contre les bots si "siteBrand" est absent ou si "siteBrand.blocked" n'est pas true.
-- Si "siteBrand.blocked" == true (vrai bot-wall constaté) : dis que le site est protégé par les bots et demande une CAPTURE D'ÉCRAN dans le chat ; ne génère pas le CSS sans.
+- Si "siteBrand.blocked" == true (page de défi anti-bot constatée, ex. Cloudflare « Just a moment ») : dis que le site est protégé par les bots et demande une CAPTURE D'ÉCRAN dans le chat ; ne génère pas le CSS sans. Un simple 403/erreur réseau = "siteBrand.error" (voir règle suivante), jamais "bloqué par les bots".
 - Si "siteBrand.error" est présent (site non lisible depuis l'app, ex. proxy/egress) : ne dis PAS « protégé par les bots » — dis que tu n'as pas pu lire le site automatiquement et demande une capture d'écran (bouton « Ajouter un fichier »).
 - Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
 - Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth (--primary = la PREMIÈRE couleur de siteBrand.colors, la plus fréquente/dominante) et SES polices (première de siteBrand.fonts en priorité, avec @import Google Fonts si c'est une webfont connue) — ne devine aucune autre couleur.
@@ -134,12 +134,17 @@ def fetch_site_brand(url: str) -> dict:
         with httpx.Client(timeout=10, follow_redirects=True, trust_env=False, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}) as client:
             resp = client.get(url)
             head = resp.text[:5000].lower()
-            bot_markers = ("cloudflare", "just a moment", "attention required", "captcha", "datadome", "perimeterx", "akamai", "access denied", "are you a robot", "verify you are human")
-            # Only a REAL bot-wall counts as blocked: a bare 403 from an egress proxy is not the site blocking us.
-            if resp.status_code in (401, 403, 429) and any(m in head for m in bot_markers):
+            # Only an UNAMBIGUOUS bot-challenge page counts as "blocked" (Cloudflare "Just a moment" etc.).
+            # A bare 403/429 from our egress (datacenter IP blocked, proxy) is NOT the site bot-walling a
+            # human visitor — report it as unreadable, and offer the screenshot instead.
+            challenge_markers = ("just a moment", "cf-chl", "cloudflare security check", "attention required", "security check")
+            is_challenge_page = any(m in head for m in challenge_markers) and (
+                "just a moment" in head or "security check" in head or "attention required" in head or "cf-chl" in head
+            )
+            if resp.status_code in (401, 403, 429) and is_challenge_page:
                 return {"url": url, "blocked": True, "status": resp.status_code}
             if resp.status_code >= 400:
-                return {"url": url, "error": f"HTTP {resp.status_code} (proxy/egress ?) — page non lisible automatiquement"}
+                return {"url": url, "error": f"HTTP {resp.status_code} depuis l'app — page non lisible automatiquement"}
             html = resp.text[:200_000]
             colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
             fonts = re.findall(r"font-family:\s*([^;}]+)", html)
