@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Fast model for the conversational Q&A turns; ML4 (MODEL) is reserved for the final
 # generation, which is the heavy turn. ML4's reasoning makes even a trivial question take
 # several seconds per call.
-CHAT_MODEL = "mistral-small-latest"
+CHAT_MODEL = os.environ.get("REPORT_CHAT_MODEL", "mistral-small-latest")
 
 router = APIRouter()
 
