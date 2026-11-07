@@ -26,7 +26,7 @@ type Report = { reportJson: unknown | null; css: string | null };
 
 type HistoryEntry = { id: string; created_at: string; mode: string; client_name: string; summary: string };
 
-const MODES: { value: Mode; title: string; longTitle: string; icon: ReactNode }[] = [
+const ALL_MODES: { value: Mode; title: string; longTitle: string; icon: ReactNode }[] = [
   {
     value: "structure_and_design",
     title: "JSON & CSS",
@@ -71,6 +71,9 @@ const GREETINGS: Record<Mode, string> = {
   structure_only: "Bonjour ! Quel est le fichier matrice réseau (CSV/XLSX) du client ?",
   design_only: "Bonjour ! Je designe le CSS de votre rapport à la charte du client. Quel est le nom du client, et quelle est l'URL de son site web ?",
 };
+
+// Seules les 2 options proposées : JSON seul et CSS seul (le mode combiné reste supporté par l'API mais masqué).
+const MODES = ALL_MODES.filter((m) => m.value !== "structure_and_design");
 
 export const Route = createFileRoute("/builder")({
   staticData: { landing: true },
@@ -231,8 +234,8 @@ function BuilderPage() {
   const sendText = async (raw: string, uploadOverride?: { text: string | null; b64: string | null; imgB64?: string | null }) => {
     let text = raw.trim();
     if (/^\s*(oui|yes)\b/i.test(text) && refining && report?.css) text = CHONK_IMPROVE;
-    if (!text || pending) return;
-    const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
+    if ((!text && !uploadOverride && !csvText && !csvB64 && !imgB64) || pending) return;
+    const userTurn: ChatTurn = { role: "user", content: text ? (csvName || imgName ? `${text} 📎 ${csvName || imgName}` : text) : `📎 ${csvName || imgName}` };
     const historyForApi = [...turns, userTurn].map((t) => ({ role: t.role, content: t.content }));
     setTurns((prev) => [...prev, userTurn]);
     setInput("");
@@ -754,7 +757,7 @@ function ChatColumn({
           />
           <button
             type="submit"
-            disabled={pending || input.trim() === ""}
+            disabled={pending || (input.trim() === "" && !csvName && !imgName)}
             className="rounded-full bg-zei-mint px-5 py-2.5 text-sm font-bold text-zei-navy transition hover:brightness-110 disabled:opacity-50"
           >
             Envoyer
