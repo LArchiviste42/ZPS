@@ -330,7 +330,7 @@ function BuilderPage() {
   };
 
   return (
-    <main className="zei-animated-bg flex min-h-full flex-col">
+    <main className="zei-animated-bg flex min-h-full flex-col lg:h-full lg:overflow-hidden">
       <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-white/10 bg-transparent px-4 py-3">
         <button type="button" onClick={() => setView("home")} className="flex items-center gap-3" title="Accueil">
           <img src="/logo-zei-white.svg" alt="Zei" className="h-7 w-auto" />
@@ -405,7 +405,7 @@ function BuilderPage() {
 
       {view === "chat" && (
       <div
-        className={`mx-auto flex w-full ${report ? "max-w-none px-2 lg:h-[calc(100vh-5rem)] lg:overflow-hidden" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6 rounded-2xl transition ${isDragging ? "ring-2 ring-zei-mint bg-white/5" : ""}`}
+        className={`mx-auto flex w-full ${report ? "max-w-none px-2 lg:h-[calc(100vh-5rem)]" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6 rounded-2xl transition ${isDragging ? "ring-2 ring-zei-mint bg-white/5" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
