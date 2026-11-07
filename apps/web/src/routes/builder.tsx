@@ -248,11 +248,15 @@ function BuilderPage() {
   };
 
   const status = (() => {
+    const lastUser = [...turns].reverse().find((t) => t.role === "user")?.content ?? "";
     if (imgB64) return "analyse de la capture d'écran du site (couleurs, polices, style)…";
+    if (csvName || /📎/.test(lastUser))
+      return "récupération du fichier et analyse de la matrice réseau pour construire le JSON et l'aperçu…";
+    if (/https?:\/\//.test(lastUser)) return "lecture du site du client pour extraire la charte graphique (couleurs, polices)…";
+    if (lastUser.trim()) return `enregistrement de la demande « ${lastUser.slice(0, 40)} » — ouverture de la session et stockage dans l'historique…`;
     if (report?.css || report?.reportJson) return "mise à jour du livrable selon ta demande…";
-    if (mode === "design_only") return "lecture du site du client et récupération de la charte graphique…";
-    if (!report?.reportJson) return "analyse de la matrice réseau et rédaction du JSON…";
-    return "lecture du site du client et génération du CSS…";
+    if (mode === "design_only") return "préparation du CSS à la charte du client…";
+    return "rédaction du JSON et de l'aperçu…";
   })();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
