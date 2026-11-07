@@ -1,14 +1,14 @@
-@import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400..900;1,400..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap");
 @import "tailwindcss";
 
-/* Zei brand tokens — charte logo 2022 (#58B896 mint, #3C3C3B ink) and current palette (#262882 navy, #4347E8 indigo). */
+/* Zei brand tokens — charte logo 2022 (#58B896 mint, #3C3C3B ink) and 2026 palette (navy #262882, indigo #4347E8). */
 @theme {
   --color-zei-mint: #58b896;
   --color-zei-ink: #3c3c3b;
   --color-zei-navy: #262882;
   --color-zei-indigo: #4347e8;
 
-  --font-sans: "Nunito", ui-rounded, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 @layer base {
@@ -18,17 +18,44 @@
   }
 
   body {
-    @apply bg-white font-sans text-zei-ink antialiased;
+    @apply bg-zei-navy font-sans text-white antialiased;
   }
 }
 
+/* Zei 2026 animated blue background: slow-moving navy → indigo gradient with mint glow. */
+@keyframes zei-bg-pan {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.zei-animated-bg {
+  background:
+    radial-gradient(ellipse 60% 45% at 20% 20%, rgba(88, 184, 150, 0.35), transparent 60%),
+    radial-gradient(ellipse 55% 50% at 85% 80%, rgba(67, 71, 232, 0.55), transparent 65%),
+    linear-gradient(120deg, #1b1e5e 0%, #262882 35%, #4347e8 70%, #262882 100%);
+  background-size: 220% 220%, 220% 220%, 300% 300%;
+  animation: zei-bg-pan 18s ease-in-out infinite;
+}
+
+.zei-chat-bg {
+  background: linear-gradient(135deg, #262882 0%, #4347e8 100%);
+}
+
 /*
- * Spinners and pulsing placeholders already say "loading" by their shape or accessible name, so they
- * hold still for a reader who asked for reduced motion.
+ * Spinners, pulsing placeholders and the animated background hold still for a reader who
+ * asked for reduced motion.
  */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse,
-  .animate-spin {
+  .animate-spin,
+  .zei-animated-bg {
     animation: none;
   }
 }
