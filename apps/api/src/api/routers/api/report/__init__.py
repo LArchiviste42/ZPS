@@ -7,9 +7,12 @@ from utils.mistral import MistralNotConfiguredError, caller_credentials
 
 
 def _require_caller() -> None:
+    creds = None
     try:
-        caller_credentials()
+        creds = caller_credentials()
     except MistralNotConfiguredError:
+        creds = None
+    if creds is None or not creds.token:
         raise HTTPException(status_code=401, detail="Authentification requise : aucun token gateway sur la requête.")
 
 
