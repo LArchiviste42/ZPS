@@ -66,8 +66,8 @@ const MODES: { value: Mode; title: string; longTitle: string; icon: ReactNode }[
 ];
 
 const GREETINGS: Record<Mode, string> = {
-  structure_and_design: "Bonjour ! Je construis et designe votre rapport (JSON & CSS). Quel est le nom du client ?",
-  structure_only: "Bonjour ! Je construis la structure JSON de votre rapport. Quel est le nom du client ?",
+  structure_and_design: "Bonjour ! On commence par le JSON : quel est le fichier matrice réseau (CSV/XLSX) du client ?",
+  structure_only: "Bonjour ! Quel est le fichier matrice réseau (CSV/XLSX) du client ?",
   design_only: "Bonjour ! Je designe le CSS de votre rapport à la charte du client. Quel est le nom du client, et quelle est l'URL de son site web ?",
 };
 
