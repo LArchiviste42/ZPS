@@ -118,6 +118,8 @@ function BuilderPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [previewFull, setPreviewFull] = useState(false);
+  // true only right after a deliverable was proposed in THIS chat: then (and only then) the current JSON/CSS are sent back for refinement.
+  const [refining, setRefining] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyQuery, setHistoryQuery] = useState("");
   const [pending, setPending] = useState(false);
@@ -169,6 +171,7 @@ function BuilderPage() {
     setMode(value);
     setTurns([{ role: "assistant", content: GREETINGS[value] }]);
     setReport(null);
+    setRefining(false); // nouvelle demande : on oublie tout livrable précédent
     setError("");
     setView("chat");
   };
@@ -207,6 +210,7 @@ function BuilderPage() {
     const { ok, data } = await fetchJson(`/api/report/history/${id}`);
     if (!ok || !data) return;
     setReport({ reportJson: data.reportJson, css: data.css });
+    setRefining(true);
     if (Array.isArray(data.messages) && data.messages.length > 0) {
       setTurns(
         data.messages
@@ -236,14 +240,17 @@ function BuilderPage() {
         csv: uploadOverride?.text ?? (csvText || null),
         fileB64: uploadOverride?.b64 ?? (csvB64 || null),
         imageB64: uploadOverride?.imgB64 ?? (imgB64 || null),
-        reportJson: report?.reportJson ?? null,
-        css: report?.css ?? null,
+        reportJson: refining ? report?.reportJson ?? null : null,
+        css: refining ? report?.css ?? null : null,
         forcePhase: /terminé/i.test(text) ? "css" : null,
       });
       setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields, awaitingFile: data.awaitingFile }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
+        setRefining(true); // livrable proposé dans ce chat -> les prochains messages peuvent le raffiner
         await refreshHistory();
+      } else {
+        setRefining(false);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
