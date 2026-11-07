@@ -56,7 +56,3 @@ exclude = ["apps/web"]
 [tool.uv.exclude-newer-package]
 "mistralai-capabilities-deployment-apps" = false
 "mistralai-capabilities-backend-fastapi" = false
-
-[tool.ruff.lint.per-file-ignores]
-# File-based router convention: `[param].py` files are URL templates, not importable module names.
-"**/[[]]*.py" = ["N999"]

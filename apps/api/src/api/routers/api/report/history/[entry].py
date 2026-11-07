@@ -1,3 +1,4 @@
+# noqa: N999  (file-based router: [entry] is the {entry} URL parameter)
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
