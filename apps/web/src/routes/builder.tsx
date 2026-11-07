@@ -207,7 +207,16 @@ function BuilderPage() {
     const { ok, data } = await fetchJson(`/api/report/history/${id}`);
     if (!ok || !data) return;
     setReport({ reportJson: data.reportJson, css: data.css });
-    setTurns((prev) => [...prev, { role: "assistant", content: `Livrable rechargé depuis l'historique : ${data.summary}` }]);
+    if (Array.isArray(data.messages) && data.messages.length > 0) {
+      setTurns(
+        data.messages
+          .filter((m: any) => m.role === "user" || m.role === "assistant")
+          .map((m: any) => ({ role: m.role as "user" | "assistant", content: String(m.content) })),
+      );
+    } else {
+      setTurns((prev) => [...prev, { role: "assistant", content: `Session rechargée depuis l'historique : ${data.summary}` }]);
+    }
+    setView("chat");
     setHistoryOpen(false);
   };
 

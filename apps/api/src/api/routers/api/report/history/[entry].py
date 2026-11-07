@@ -17,6 +17,7 @@ class HistoryDetail(BaseModel):
     summary: str
     report_json: Any = Field(alias="reportJson")
     css: str | None = None
+    messages: list | None = None
 
     model_config = {"populate_by_name": True}
 
@@ -38,4 +39,5 @@ def history_get(entry: str) -> HistoryDetail:
         summary=record.get("summary", ""),
         report_json=record.get("report_json"),
         css=record.get("css"),
+        messages=record.get("messages"),
     )

@@ -19,6 +19,7 @@ def _to_dict(row: ReportHistory) -> dict[str, Any]:
         "summary": row.summary,
         "report_json": row.report_json,
         "css": row.css,
+        "messages": row.messages,
     }
 
 
@@ -34,7 +35,7 @@ async def get_entry(entry_id: str) -> dict[str, Any] | None:
         return _to_dict(row) if row else None
 
 
-async def save_entry(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None) -> dict[str, Any]:
+async def save_entry(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None, messages: Any = None) -> dict[str, Any]:
     row = ReportHistory(
         id=uuid.uuid4().hex[:12],
         created_at=datetime.now(UTC),
@@ -43,6 +44,7 @@ async def save_entry(*, mode: str, client_name: str, summary: str, report_json: 
         summary=summary,
         report_json=report_json,
         css=css,
+        messages=messages,
     )
     async with get_session_maker()() as session:
         session.add(row)

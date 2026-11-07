@@ -15,3 +15,4 @@ class ReportHistory(SQLModel, table=True):
     summary: str = Field(default="")
     report_json: dict | None = Field(default=None, sa_column=Column(JSON))
     css: str | None = Field(default=None, sa_column=Column(Text))
+    messages: list | None = Field(default=None, sa_column=Column(JSON))

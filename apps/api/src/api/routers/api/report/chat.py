@@ -430,10 +430,17 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.reply += " — V1 du JSON prête. Itère dessus en langage naturel, ou clique « JSON terminé » pour passer au CSS."
     if response.done and (response.report_json or response.css):
         client_name = ""
-        for m in reversed(request.messages):
-            if m.role == "user" and m.content:
-                client_name = m.content[:80]
-                break
+        for m in request.messages:
+            if m.role == "user":
+                match = re.search(r"clientName\s*:\s*(.+)", m.content, re.IGNORECASE)
+                if match:
+                    client_name = match.group(1).strip()[:80]
+                    break
+        if not client_name:
+            for m in request.messages:
+                if m.role == "user" and m.content:
+                    client_name = m.content[:80]
+                    break
         try:
             entry = _store.save_entry(
                 mode=request.mode,
@@ -441,6 +448,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
                 summary=response.reply[:200] or "livrable généré",
                 report_json=response.report_json,
                 css=response.css,
+                messages=[{"role": m.role, "content": m.content} for m in request.messages],
             )
             response.history_id = entry["id"]
         except OSError:

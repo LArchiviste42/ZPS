@@ -77,7 +77,7 @@ def _file_get(entry_id: str) -> dict[str, Any] | None:
     return None
 
 
-def _file_save(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None) -> dict[str, Any]:
+def _file_save(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None, messages: Any = None) -> dict[str, Any]:
     entry = {
         "id": uuid.uuid4().hex[:12],
         "created_at": datetime.now(UTC).isoformat(),
@@ -86,6 +86,7 @@ def _file_save(*, mode: str, client_name: str, summary: str, report_json: Any, c
         "summary": summary,
         "report_json": report_json,
         "css": css,
+        "messages": messages,
     }
     with _lock:
         path = _path()
@@ -116,10 +117,10 @@ def get_entry(entry_id: str) -> dict[str, Any] | None:
     return _file_get(entry_id)
 
 
-def save_entry(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None) -> dict[str, Any]:
+def save_entry(*, mode: str, client_name: str, summary: str, report_json: Any, css: str | None, messages: Any = None) -> dict[str, Any]:
     if _use_db():
         try:
-            return _db_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css)
+            return _db_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css, messages=messages)
         except Exception:
             logger.warning("history DB write failed, falling back to file", exc_info=True)
-    return _file_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css)
+    return _file_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css, messages=messages)
