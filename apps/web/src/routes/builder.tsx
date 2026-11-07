@@ -122,6 +122,7 @@ function BuilderPage() {
   const [refining, setRefining] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyQuery, setHistoryQuery] = useState("");
+  const [expandedClients, setExpandedClients] = useState<Record<string, boolean>>({});
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
@@ -448,48 +449,62 @@ function BuilderPage() {
                 {history.length === 0 ? "Aucune demande pour l'instant." : "Aucun résultat pour cette recherche."}
               </p>
             )}
-            <ul className="flex flex-1 flex-col gap-3 overflow-y-auto">
-              {groupedHistory.map(([client, entries]) => (
-                <li key={client}>
-                  <p className="mb-1 flex items-center justify-between px-1 text-xs font-extrabold uppercase tracking-wide text-zei-mint">
-                    <span>{client}</span>
-                    <span className="text-white/50">
-                      {entries.length} version{entries.length > 1 ? "s" : ""}
-                    </span>
-                  </p>
-                  <ul className="flex flex-col gap-1.5">
-                    {entries.map((h, i) => (
-                      <li key={h.id}>
-                        <button
-                          type="button"
-                          onClick={() => void loadHistoryEntry(h.id)}
-                          className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-sm text-white hover:bg-white/20"
-                        >
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-white/90">v{entries.length - i}</span>
-                            <span className="flex gap-1">
-                              {modeTags(h.mode).map((tag) => (
-                                <span
-                                  key={tag}
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
-                                    tag === "JSON" ? "bg-zei-indigo text-white" : "bg-zei-mint text-zei-navy"
-                                  }`}
-                                >
-                                  {tag}
+            <ul className="flex flex-1 flex-col gap-2 overflow-y-auto">
+              {groupedHistory.map(([client, entries]) => {
+                const open = expandedClients[client] ?? false;
+                return (
+                  <li key={client}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedClients((prev) => ({ ...prev, [client]: !open }))}
+                      className="flex w-full items-center justify-between rounded-xl border border-white/15 bg-white/10 px-3 py-2.5 text-left text-sm text-white hover:bg-white/20"
+                    >
+                      <span className="font-bold">{client}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-white/60">
+                          {entries.length} version{entries.length > 1 ? "s" : ""}
+                        </span>
+                        <span className={`text-sm transition-transform ${open ? "rotate-90" : ""}`} aria-hidden="true">
+                          ☰
+                        </span>
+                      </span>
+                    </button>
+                    {open && (
+                      <ul className="ml-3 mt-1.5 flex flex-col gap-1.5 border-l border-white/15 pl-3">
+                        {entries.map((h, i) => (
+                          <li key={h.id}>
+                            <button
+                              type="button"
+                              onClick={() => void loadHistoryEntry(h.id)}
+                              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-sm text-white hover:bg-white/15"
+                            >
+                              <span className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-white/90">v{entries.length - i}</span>
+                                <span className="flex gap-1">
+                                  {modeTags(h.mode).map((tag) => (
+                                    <span
+                                      key={tag}
+                                      className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
+                                        tag === "JSON" ? "bg-zei-indigo text-white" : "bg-zei-mint text-zei-navy"
+                                      }`}
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
                                 </span>
-                              ))}
-                            </span>
-                          </span>
-                          <span className="mt-1 block text-xs text-white/60">
-                            {new Date(h.created_at).toLocaleString("fr-FR")}
-                          </span>
-                          <span className="block text-xs text-white/60">{h.summary}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
+                              </span>
+                              <span className="mt-1 block text-xs text-white/60">
+                                {new Date(h.created_at).toLocaleString("fr-FR")}
+                              </span>
+                              <span className="block text-xs text-white/60">{h.summary}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </aside>
         )}
