@@ -49,7 +49,7 @@ def complete_json(
                             {"role": "user", "content": user_payload},
                         ],
                         response_format={"type": "json_object"},
-                        timeout=25,
+                        timeout_ms=25000,
                     )
                     content = completion.choices[0].message.content
                     if not isinstance(content, str) or not content.strip():

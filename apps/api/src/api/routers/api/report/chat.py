@@ -1,7 +1,10 @@
+import base64
 import csv
 import io
 import json
 import logging
+import zipfile
+import xml.etree.ElementTree as ET
 from typing import Literal
 
 from fastapi import APIRouter
@@ -30,6 +33,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessageIn] = Field(default_factory=list)
     # Contenu texte d'un CSV de la matrice réseau uploadé par l'utilisateur.
     csv: str | None = None
+    # Fichier XLSX uploadé, encodé en base64 (les .xlsx sont des zip binaires).
+    file_b64: str | None = Field(default=None, alias="fileB64")
     # Livrable courant, pour les demandes de raffinement en langage naturel après génération.
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
@@ -67,7 +72,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Parle en français, de façon courte et directe. Tu peux poser les questions d'un même groupe en lot, une à la fois sinon.
 - ORDRE DES QUESTIONS SELON LE MODE :
   * mode CSS seul ("design_only") : demande le nom du client, puis l'URL de son site web (pour extraire sa charte graphique).
-  * mode JSON seul ("structure_only") : demande (1) le fichier CSV de la matrice réseau / architecture du network du client (export Excel accepté en CSV ; colonnes Thématique, Sous-thématique, Catégorie, Indicateur, Type, ID Parent, flag NA/NM), (2) l'ID client (organizationId) et l'ID réseau (networkId — il change à chaque usage), (3) combien d'années / exercices historiques afficher dans les graphiques, (4) la répartition souhaitée entre graphiques et tableaux : 20% graphiques / 80% tableaux, 40/60, 60/40 ou 80/20, (5) si un sommaire (table_of_content) est souhaité (oui/non), (6) le type de graphiques préféré : courbes "line" ou barres "bar".
+  * mode JSON seul ("structure_only") : demande (1) EN PREMIER le fichier CSV **ou XLSX** de la matrice réseau / architecture du network du client (colonnes Thématique, Sous-thématique, Catégorie, Indicateur, Type, ID Parent, flag NA/NM — l'ORGANIZATION ID y figure souvent, note-le), (2) ensuite l'ID client (organizationId, s'il n'est pas dans le fichier) et l'ID réseau (networkId — il change à chaque usage), (3) combien d'années / exercices historiques afficher dans les graphiques, (4) la répartition souhaitée entre graphiques et tableaux : 20% graphiques / 80% tableaux, 40/60, 60/40 ou 80/20, (5) si un sommaire (table_of_content) est souhaité (oui/non), (6) le type de graphiques préféré : courbes "line" ou barres "bar".
   * mode JSON & CSS ("structure_and_design") : d'abord les questions CSS (nom du client, URL du site), puis les questions JSON (CSV, IDs, exercices historiques, répartition graphiques/tableaux).
 - Dès que tu as tout ce qu'il faut :
   * en mode combiné, produis le CSS ET le JSON dans la même réponse (présente d'abord le CSS dans "reply", puis le JSON aussitôt après, sans attendre) ;
@@ -96,6 +101,32 @@ _HEADER_ALIASES = {
     "parentid": "parent_id", "id parent": "parent_id", "idparent": "parent_id",
     "flag": "flag", "na/nm": "flag", "nanm": "flag",
 }
+
+
+def xlsx_to_csv_text(data: bytes) -> str:
+    """Minimal XLSX reader (stdlib only): first sheet, shared strings resolved, cells joined by ';'."""
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        shared: list[str] = []
+        if "xl/sharedStrings.xml" in z.namelist():
+            root = ET.fromstring(z.read("xl/sharedStrings.xml"))
+            for si in root.findall(f"{ns}si"):
+                shared.append("".join(t.text or "" for t in si.iter(f"{ns}t")))
+        sheet_name = next((n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")), None)
+        if sheet_name is None:
+            raise ValueError("Aucune feuille trouvée dans le XLSX")
+        root = ET.fromstring(z.read(sheet_name))
+    lines: list[str] = []
+    for row in root.iter(f"{ns}row"):
+        cells: list[str] = []
+        for c in row.findall(f"{ns}c"):
+            v = c.find(f"{ns}v")
+            text = v.text if v is not None else ""
+            if c.get("t") == "s" and text is not None:
+                text = shared[int(text)] if int(text) < len(shared) else text
+            cells.append(text or "")
+        lines.append(";".join(cells))
+    return "\n".join(lines)
 
 
 def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
@@ -165,8 +196,18 @@ def _parse(data: dict) -> ChatResponse:
 )
 def report_chat(request: ChatRequest) -> ChatResponse:
     indicators, csv_errors = ([], [])
-    if request.csv:
-        indicators, csv_errors = parse_csv_indicators(request.csv)
+    csv_text = request.csv
+    if request.file_b64:
+        raw = base64.b64decode(request.file_b64)
+        if raw[:2] == b"PK":  # XLSX = zip
+            try:
+                csv_text = xlsx_to_csv_text(raw)
+            except Exception as err:  # noqa: BLE001
+                csv_errors = [f"XLSX illisible : {err}"]
+        else:
+            csv_text = raw.decode("utf-8", errors="replace")
+    if csv_text:
+        indicators, csv_errors = parse_csv_indicators(csv_text) if not csv_errors else (indicators, csv_errors)
     payload = {
         "mode": request.mode,
         "csvIndicators": indicators,

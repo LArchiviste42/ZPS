@@ -124,6 +124,23 @@ function BuilderPage() {
   const [input, setInput] = useState("");
   const [csvText, setCsvText] = useState("");
   const [csvName, setCsvName] = useState("");
+  const [csvB64, setCsvB64] = useState("");
+
+  const readUpload = (file: File) => {
+    setCsvName(file.name);
+    if (file.name.toLowerCase().endsWith(".xlsx")) {
+      setCsvText("");
+      void file.arrayBuffer().then((buf) => {
+        let bin = "";
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+        setCsvB64(btoa(bin));
+      });
+    } else {
+      setCsvB64("");
+      void file.text().then(setCsvText);
+    }
+  };
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -176,7 +193,7 @@ function BuilderPage() {
     setHistoryOpen(false);
   };
 
-  const sendText = async (raw: string, csvOverride?: string | null) => {
+  const sendText = async (raw: string, uploadOverride?: { text: string | null; b64: string | null }) => {
     const text = raw.trim();
     if (!text || pending) return;
     const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
@@ -189,7 +206,8 @@ function BuilderPage() {
       const data = await postChat({
         mode,
         messages: historyForApi,
-        csv: csvOverride ?? csvText ?? null,
+        csv: uploadOverride?.text ?? (csvText || null),
+        fileB64: uploadOverride?.b64 ?? (csvB64 || null),
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
       });
@@ -204,6 +222,7 @@ function BuilderPage() {
       setPending(false);
       setCsvText("");
       setCsvName("");
+      setCsvB64("");
     }
   };
 
@@ -221,9 +240,7 @@ function BuilderPage() {
 
   const onFile = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
-    setCsvName(file.name);
-    void file.text().then(setCsvText);
+    if (file) readUpload(file);
   };
 
   return (
@@ -408,7 +425,7 @@ function BuilderPage() {
               csvName={csvName}
               onFile={onFile}
               onSend={send}
-              onSendText={(t, c) => void sendText(t, c ?? null)}
+              onSendText={(t, u) => void sendText(t, u)}
               status={status}
               bottomRef={bottomRef}
             />
@@ -449,7 +466,7 @@ function BuilderPage() {
           csvName={csvName}
           onFile={onFile}
           onSend={send}
-          onSendText={(t, c) => void sendText(t, c ?? null)}
+          onSendText={(t, u) => void sendText(t, u)}
           status={status}
           bottomRef={bottomRef}
         />
@@ -481,7 +498,7 @@ function ChatColumn({
   csvName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
-  onSendText: (text: string, csv?: string | null) => void;
+  onSendText: (text: string, upload?: { text: string | null; b64: string | null }) => void;
   status: string;
   bottomRef: React.Ref<HTMLDivElement>;
 }) {
@@ -541,9 +558,9 @@ function ChatColumn({
         {error && <p className="text-sm font-semibold text-red-300">{error}</p>}
 
         <form onSubmit={onSend} className="flex items-center gap-2 rounded-2xl bg-white/10 p-3">
-          <label className="cursor-pointer rounded-full border border-white/25 px-3 py-2 text-xs font-bold text-white/80 hover:bg-white/20" title="Joindre le CSV de la matrice réseau">
-            📎 CSV
-            <input type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
+          <label className="cursor-pointer rounded-full border border-white/25 px-3 py-2 text-xs font-bold text-white/80 hover:bg-white/20" title="Joindre le CSV/XLSX de la matrice réseau">
+            📎 CSV/XLS
+            <input type="file" accept=".csv,.xlsx,text/csv" onChange={onFile} className="hidden" />
           </label>
           {csvName && <span className="max-w-40 truncate text-xs text-zei-mint">{csvName}</span>}
           <input
@@ -621,10 +638,10 @@ function Questionnaire({
 }: {
   fields: FieldSpec[];
   disabled: boolean;
-  onSubmit: (text: string, csv?: string | null) => void;
+  onSubmit: (text: string, upload?: { text: string | null; b64: string | null }) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [csv, setCsv] = useState<{ name: string; text: string } | null>(null);
+  const [csv, setCsv] = useState<{ name: string; text: string | null; b64: string | null } | null>(null);
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }));
 
   const submit = (e: FormEvent) => {
@@ -634,7 +651,7 @@ function Questionnaire({
       .map((f) => `${f.key}: ${values[f.key] ?? ""}`)
       .filter((l) => !l.endsWith(": "));
     const text = lines.join("\n") || "Réponses envoyées.";
-    onSubmit(csv ? `${text}\n📎 ${csv.name}` : text, csv?.text ?? null);
+    onSubmit(csv ? `${text}\n📎 ${csv.name}` : text, csv ? { text: csv.text, b64: csv.b64 } : undefined);
   };
 
   return (
@@ -662,14 +679,24 @@ function Questionnaire({
             </div>
           ) : f.type === "file" ? (
             <label className="inline-block cursor-pointer rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 hover:bg-white/20">
-              📎 Choisir le fichier CSV
+              📎 Choisir le fichier CSV/XLSX
               <input
                 type="file"
-                accept=".csv,text/csv"
+                accept=".csv,.xlsx,text/csv"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file) void file.text().then((t) => setCsv({ name: file.name, text: t }));
+                  if (!file) return;
+                  if (file.name.toLowerCase().endsWith(".xlsx")) {
+                    void file.arrayBuffer().then((buf) => {
+                      let bin = "";
+                      const bytes = new Uint8Array(buf);
+                      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+                      setCsv({ name: file.name, text: null, b64: btoa(bin) });
+                    });
+                  } else {
+                    void file.text().then((t) => setCsv({ name: file.name, text: t, b64: null }));
+                  }
                 }}
               />
             </label>
