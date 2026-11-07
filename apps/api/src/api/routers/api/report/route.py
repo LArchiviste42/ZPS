@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def complete_json(system_prompt: str, user_payload: str, *, retries: int = 3) -> dict:
+def complete_json(system_prompt: str, user_payload: str, *, model: str = MODEL, retries: int = 3) -> dict:
     """Call the model in JSON mode and parse its answer; a few retries, then a clean 502.
 
     The gateway proxy sometimes answers 200 with an empty body (transient); without this
@@ -22,7 +22,7 @@ def complete_json(system_prompt: str, user_payload: str, *, retries: int = 3) ->
     for attempt in range(retries + 1):
         try:
             completion = caller_mistral_client().chat.complete(
-                model=MODEL,
+                model=model,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_payload},

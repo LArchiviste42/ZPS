@@ -6,7 +6,12 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from . import _store
-from .route import SYSTEM_PROMPT, Mode, complete_json
+from .route import MODEL, SYSTEM_PROMPT, Mode, complete_json
+
+# Fast model for the conversational Q&A turns; ML4 (MODEL) is reserved for the final
+# generation, which is the heavy turn. ML4's reasoning makes even a trivial question take
+# several seconds per call.
+CHAT_MODEL = "mistral-small-latest"
 
 router = APIRouter()
 
@@ -125,8 +130,22 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
     }
-    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False))
+    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2)
     response = _parse(data)
+    if response.done and (response.report_json or response.css):
+        # The turn that produces the deliverable is regenerated with ML4 for quality.
+        final = complete_json(
+            CHAT_SYSTEM_PROMPT + "\nL'utilisateur a tout fourni : génère maintenant le livrable final complet.",
+            json.dumps(payload, ensure_ascii=False),
+            model=MODEL,
+            retries=2,
+        )
+        final_response = _parse(final)
+        response.report_json = final_response.report_json
+        response.css = final_response.css
+        response.excluded = final_response.excluded
+        if final_response.notes:
+            response.notes = final_response.notes
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):
