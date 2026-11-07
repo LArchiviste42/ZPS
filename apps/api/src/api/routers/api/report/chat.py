@@ -89,6 +89,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * mode JSON seul ("structure_only") : demande (1) EN PREMIER le fichier CSV **ou XLSX** de la matrice réseau / architecture du network du client (colonnes Thématique, Sous-thématique, Catégorie, Indicateur, Type, ID Parent, flag NA/NM — l'ORGANIZATION ID y figure souvent, note-le), (2) ensuite l'ID client (organizationId, s'il n'est pas dans le fichier) et l'ID réseau (networkId — il change à chaque usage), (3) combien d'années / exercices historiques afficher dans les graphiques, (4) la répartition souhaitée entre graphiques et tableaux : 20% graphiques / 80% tableaux, 40/60, 60/40 ou 80/20, (5) si un sommaire (table_of_content) est souhaité (oui/non), (6) le type de graphiques préféré : courbes "line" ou barres "bar".
   * mode JSON & CSS ("structure_and_design") : d'abord TOUTES les questions JSON (fichier matrice d'abord, puis IDs, exercices, ratio, sommaire, ligne/barre), puis en phase 2 les questions CSS (nom, URL).
 - OBLIGATION ABSOLUE : TOUS les indicateurs de "csvIndicators" doivent apparaître dans le JSON (headers + blocs chart/table/text_indicators) — AUCUN omis, même les narratifs. Compte-les et vérifie avant de répondre done=true.
+- INTERDICTION ABSOLUE d'inventer un indicatorId : chaque indicatorId / indicatorIds DOIT être un "id" (parentId) présent dans "csvIndicators". Ne jamais écrire 101, 201, etc. — ce sont des placeholders interdits.
+- Les tableaux DYNAMIQUES d'indicateurs utilisent UNIQUEMENT le format skill : data.table.columns (IndicatorName, LastValue, YearXValue, Progression) + data.table.indicatorIds (tableau de CHAÎNES avec les id du CSV). PAS de "content"/"withHeadings" pour les indicateurs (ça c'est table_raw, réservé aux tableaux 100% statiques sans indicateur).
 - Dès que tu as tout ce qu'il faut :
   * en mode combiné (JSON & CSS) : JAMAIS les deux en même temps — d'abord le JSON (phase 1), puis le CSS en phase 2 après confirmation de l'utilisateur ;
   * réponds avec "done": true en incluant reportJson et/ou css.
@@ -399,7 +401,10 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "mode": request.mode,
         "siteBrand": site_brand,
         "csvOrganizationId": extract_organization_id(csv_text) if csv_text else None,
-        "csvIndicators": indicators[:2000],
+        "csvIndicators": [
+            {"id": i.get("parentId") or i.get("name"), "theme": i.get("theme"), "subTheme": i.get("subTheme"), "name": i.get("name"), "type": i.get("type"), "flag": i.get("flag")}
+            for i in indicators[:2000]
+        ],
         "csvIndicatorsTotal": len(indicators),
         "csvIndicatorsTruncated": len(indicators) > 2000,
         "csvErrors": csv_errors,
