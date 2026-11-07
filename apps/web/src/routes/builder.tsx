@@ -250,16 +250,16 @@ function BuilderPage() {
             const [first, ...rest] = MODES;
             if (!first) return null;
             const main = first;
-            const btnClass = "flex items-center justify-center gap-4 border text-center text-white transition hover:scale-[1.01] border-white/25 bg-white/10 hover:bg-white/20";
+            const btnClass = "flex flex-col items-center justify-center gap-3 border text-center text-white transition hover:scale-[1.01] border-white/25 bg-white/10 hover:bg-white/20";
             return (
               <>
                 <button
                   key={main.value}
                   type="button"
                   onClick={() => pickMode(main.value)}
-                  className={`${btnClass} w-full rounded-2xl px-6 py-8`}
+                  className={`${btnClass} w-full rounded-2xl px-6 py-12`}
                 >
-                  <span className="shrink-0 text-zei-mint">{main.icon}</span>
+                  <span className="text-zei-mint [&>svg]:h-12 [&>svg]:w-12">{main.icon}</span>
                   <span className="text-xl font-extrabold uppercase tracking-wide">{main.longTitle}</span>
                 </button>
                 <div className="grid w-full grid-cols-2 gap-4">
@@ -268,9 +268,9 @@ function BuilderPage() {
                       key={m.value}
                       type="button"
                       onClick={() => pickMode(m.value)}
-                      className={`${btnClass} rounded-lg px-4 py-6`}
+                      className={`${btnClass} rounded-lg px-4 py-10`}
                     >
-                      <span className="shrink-0 text-zei-mint">{m.icon}</span>
+                      <span className="text-zei-mint [&>svg]:h-10 [&>svg]:w-10">{m.icon}</span>
                       <span className="text-sm font-bold uppercase">{m.longTitle}</span>
                     </button>
                   ))}
