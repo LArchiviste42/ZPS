@@ -71,6 +71,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * phase 1 (currentReportJson absent) : rassemble les infos JSON (CSV matrice réseau, organizationId, networkId, exercices historiques, ratio graphiques/tableaux) et génère UNIQUEMENT reportJson (css = null), done=true. Dans "reply", dis : le JSON est prêt et téléchargeable — réponds « ok » pour passer au CSS.
   * phase 2 (currentReportJson fourni, currentCss absent) : rassemble les infos CSS si manquantes (nom du client, URL du site), puis génère UNIQUEMENT le css (reportJson = currentReportJson inchangé), done=true.
 - RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant en conséquence et réponds done=true avec le livrable modifié. Ne recommence pas les questions.
+- NOUVELLE DEMANDE = repartir de zéro : si l'utilisateur annonce un nouveau client, une nouvelle URL de site ou une nouvelle demande, IGNORE currentCss / currentReportJson (ils appartiennent à une autre demande) et régénère depuis le template de base + la charte du NOUAUVEAU client. Ne mélange jamais la charte d'un ancien client avec celle du nouveau.
 """
 
 _HEADER_ALIASES = {
