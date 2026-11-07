@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
@@ -77,6 +78,10 @@ def complete_json(
                     )
                     # A 401 on the caller token won't fix itself by retrying the same client: move on.
                     if "401" in str(err):
+                        break
+                    # 429 rate limit: one short backoff, then move to the next model — never hammer the API.
+                    if "429" in str(err):
+                        time.sleep(5)
                         break
     raise HTTPException(status_code=502, detail="Zai (Le Chonk) n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
 
