@@ -20,10 +20,11 @@ type Report = { reportJson: unknown | null; css: string | null };
 
 type HistoryEntry = { id: string; created_at: string; mode: string; client_name: string; summary: string };
 
-const MODES: { value: Mode; title: string; icon: ReactNode }[] = [
+const MODES: { value: Mode; title: string; longTitle: string; icon: ReactNode }[] = [
   {
     value: "structure_and_design",
     title: "JSON & CSS",
+    longTitle: "Construire et designer le rapport (JSON & CSS)",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <rect x="3" y="3" width="8" height="8" rx="2" />
@@ -36,6 +37,7 @@ const MODES: { value: Mode; title: string; icon: ReactNode }[] = [
   {
     value: "structure_only",
     title: "JSON",
+    longTitle: "Construire le rapport (JSON)",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <path d="M8 4c-2 0-3 1-3 3v2c0 1-1 2-2 2 1 0 2 1 2 2v2c0 2 1 3 3 3" strokeLinecap="round" />
@@ -46,6 +48,7 @@ const MODES: { value: Mode; title: string; icon: ReactNode }[] = [
   {
     value: "design_only",
     title: "CSS",
+    longTitle: "Designer le rapport (CSS)",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4">
         <path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-.8 2-2 0-1.5 1-2 2.5-2H19a2 2 0 0 0 2-2c0-5-4.5-12-9-12z" strokeLinejoin="round" />
@@ -84,6 +87,7 @@ async function postChat(payload: Record<string, unknown>): Promise<ChatResponse>
 
 function BuilderPage() {
   const [mode, setMode] = useState<Mode>("structure_and_design");
+  const [view, setView] = useState<"home" | "chat">("home");
   const [turns, setTurns] = useState<ChatTurn[]>([{ role: "assistant", content: GREETINGS.structure_and_design }]);
   const [report, setReport] = useState<Report | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -104,6 +108,7 @@ function BuilderPage() {
     setTurns([{ role: "assistant", content: GREETINGS[value] }]);
     setReport(null);
     setError("");
+    setView("chat");
   };
 
   const refreshHistory = async () => {
@@ -162,8 +167,10 @@ function BuilderPage() {
   return (
     <main className="zei-animated-bg flex min-h-full flex-col">
       <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-white/15 bg-zei-navy/95 px-4 py-3 backdrop-blur">
-        <img src="/logo-zei-white.svg" alt="Zei" className="h-7 w-auto" />
-        <h1 className="text-lg font-extrabold uppercase tracking-wide text-white">Reporting Builder</h1>
+        <button type="button" onClick={() => setView("home")} className="flex items-center gap-3" title="Accueil">
+          <img src="/logo-zei-white.svg" alt="Zei" className="h-7 w-auto" />
+          <h1 className="text-lg font-extrabold uppercase tracking-wide text-white">Reporting Builder</h1>
+        </button>
         <nav className="ml-auto flex items-center gap-2">
           {MODES.map((m) => (
             <button
@@ -190,6 +197,42 @@ function BuilderPage() {
         </nav>
       </header>
 
+      {view === "home" && (
+        <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-16">
+          {(() => {
+            const [main, ...rest] = MODES;
+            const btnClass = "flex items-center justify-center gap-4 border text-center text-white transition hover:scale-[1.01] border-white/25 bg-white/10 hover:bg-white/20";
+            return (
+              <>
+                <button
+                  key={main.value}
+                  type="button"
+                  onClick={() => pickMode(main.value)}
+                  className={`${btnClass} w-full rounded-2xl px-6 py-8`}
+                >
+                  <span className="shrink-0 text-zei-mint">{main.icon}</span>
+                  <span className="text-xl font-extrabold uppercase tracking-wide">{main.longTitle}</span>
+                </button>
+                <div className="grid w-full grid-cols-2 gap-4">
+                  {rest.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      onClick={() => pickMode(m.value)}
+                      className={`${btnClass} rounded-lg px-4 py-6`}
+                    >
+                      <span className="shrink-0 text-zei-mint">{m.icon}</span>
+                      <span className="text-sm font-bold uppercase">{m.longTitle}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            );
+          })()}
+        </section>
+      )}
+
+      {view === "chat" && (
       <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-6 py-6">
         {historyOpen && (
           <aside className="rounded-2xl border border-white/20 bg-zei-navy/80 p-4">
@@ -268,6 +311,7 @@ function BuilderPage() {
           </button>
         </form>
       </div>
+      )}
     </main>
   );
 }
