@@ -250,13 +250,29 @@ def xlsx_to_csv_text(data: bytes) -> str:
                 return shared[idx] if idx < len(shared) else v.text
             return v.text
 
+        def col_index(ref: str | None) -> int:
+            # "BC12" -> column index (0-based); cells must be placed by their reference,
+            # otherwise empty skipped cells shift every following column.
+            if not ref:
+                return -1
+            letters = "".join(ch for ch in ref if ch.isalpha())
+            n = 0
+            for ch in letters:
+                n = n * 26 + (ord(ch.upper()) - 64)
+            return n - 1
+
         best_text, best_score = "", -1
         for sheet_file in sheet_files:
             root = ET.fromstring(z.read(sheet_file))
             lines: list[str] = []
             for row in root.iter(f"{ns}row"):
-                cells = [cell_text(c) for c in row.findall(f"{ns}c")]
-                lines.append(";".join(cells))
+                cells_by_col: dict[int, str] = {}
+                for c in row.findall(f"{ns}c"):
+                    idx = col_index(c.get("r"))
+                    if idx >= 0:
+                        cells_by_col[idx] = cell_text(c)
+                width = (max(cells_by_col) + 1) if cells_by_col else 0
+                lines.append(";".join(cells_by_col.get(i, "") for i in range(width)))
             if not lines:
                 continue
             score = sum(1 for h in lines[0].split(";") if h.strip().lower() in _HEADER_ALIASES)
@@ -315,7 +331,14 @@ def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
                 "subTheme": (row.get(mapping.get("sub_theme", "")) or theme).strip(),
                 "category": (row.get(mapping.get("category", "")) or "").strip(),
                 "name": name,
-                "type": raw_type if raw_type in {"Narratif", "Choix multiple", "Choix simple", "Oui/Non", "Nombre", "Pourcentage"} else "Narratif",
+                "type": {
+                    "narratif": "Narratif", "text": "Narratif", "naratif": "Narratif",
+                    "nombre": "Nombre", "number": "Nombre",
+                    "pourcentage": "Pourcentage", "percentage": "Pourcentage", "percent": "Pourcentage",
+                    "oui/non": "Oui/Non", "ouinon": "Oui/Non", "boolean": "Oui/Non", "yes/no": "Oui/Non",
+                    "choix multiple": "Choix multiple", "multiple_choice": "Choix multiple", "multiple choice": "Choix multiple",
+                    "choix simple": "Choix simple", "single_choice": "Choix simple", "single choice": "Choix simple",
+                }.get(raw_type.lower(), "Narratif"),
                 "parentId": parent_id,
                 "flag": flag if flag in {"NA", "NM"} else None,
             },
