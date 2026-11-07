@@ -503,54 +503,72 @@ function DownloadJsonButton({ reportJson }: { reportJson: unknown }) {
 
 /* ---------- Zai (Le Chonk), gros chaton animé ---------- */
 
+// Pixel-art "Le Chonk" in Mistral colors (M logo gradient: yellow #FFD800 -> orange #FF8205 -> red #E10500),
+// working on a PC (JSON mode) and/or painting with a Zei-green brush (#58B896, CSS mode).
+const CAT_MAP = [
+  "................",
+  "...OO......OO...",
+  "..OYYO....OYYO..",
+  "..OYYYYYYYYYYO..",
+  ".OYWWKYYYYKWWYO.",
+  ".OYYYYYYYYYYYYO.",
+  "..OYYYKKKKYYYO..",
+  "..OOYYYYYYYYOO..",
+  ".OOYYYYYYYYYYOO.",
+  "OOYYYYYYYYYYYYOO",
+  "OORYYYYYYYYYYROO",
+  "OOOOOOOOOOOOOOOO",
+];
+const CAT_COLORS: Record<string, string> = { O: "#FF8205", Y: "#FFD800", R: "#E10500", W: "#FFFFFF", K: "#262882" };
+
 function ChonkThinking({ mode }: { mode: Mode }) {
   const coding = mode !== "design_only"; // JSON ou JSON & CSS
   const painting = mode !== "structure_only"; // CSS ou JSON & CSS
   return (
-    <svg viewBox="0 0 120 84" className="chonk-bob h-20 w-auto" role="img" aria-label="Zai le gros chaton réfléchit">
+    <svg
+      viewBox="0 0 100 60"
+      className="chonk-bob h-20 w-auto"
+      shapeRendering="crispEdges"
+      role="img"
+      aria-label="Zai (Le Chonk), chaton pixel art qui travaille"
+    >
       {/* tail */}
       <g className="chonk-tail">
-        <path d="M14 62 Q4 58 6 48" stroke="#58b896" strokeWidth="5" fill="none" strokeLinecap="round" />
+        <rect x="0" y="36" width="4" height="4" fill="#FF8205" />
+        <rect x="0" y="32" width="4" height="4" fill="#FF8205" />
+        <rect x="4" y="28" width="4" height="4" fill="#FFD800" />
       </g>
       {/* body */}
-      <ellipse cx="52" cy="58" rx="30" ry="22" fill="#58b896" />
-      {/* head */}
-      <circle cx="52" cy="34" r="22" fill="#58b896" />
-      <path d="M36 22 L32 8 L46 16 Z" fill="#58b896" />
-      <path d="M68 22 L72 8 L58 16 Z" fill="#58b896" />
-      <path d="M38 19 L35 11 L43 15 Z" fill="#262882" />
-      <path d="M66 19 L69 11 L61 15 Z" fill="#262882" />
-      {/* eyes */}
+      {CAT_MAP.map((row, r) =>
+        [...row].map((ch, c) => {
+          const fill = CAT_COLORS[ch];
+          if (!fill || (r === 4 && (ch === "W" || ch === "K"))) return null;
+          return <rect key={`${r}-${c}`} x={8 + c * 4} y={r * 4} width="4" height="4" fill={fill} />;
+        }),
+      )}
+      {/* eyes (blink) */}
       <g className="chonk-eyes">
-        <circle cx="44" cy="32" r="3" fill="#262882" />
-        <circle cx="60" cy="32" r="3" fill="#262882" />
+        {[3, 4, 10, 11].map((c) => (
+          <rect key={c} x={8 + c * 4} y={16} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
+        ))}
       </g>
-      <path d="M49 40 Q52 43 55 40" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* whiskers */}
-      <path d="M30 38 L20 36 M30 42 L20 44 M74 38 L84 36 M74 42 L84 44" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
       {/* laptop with code (JSON) */}
       {coding && (
         <g>
-          <rect x="66" y="56" width="40" height="24" rx="3" fill="#262882" />
-          <rect x="69" y="59" width="34" height="18" rx="2" fill="#1b1e5e" />
-          <text x="86" y="72" fontSize="11" fontFamily="monospace" fill="#58b896" textAnchor="middle">&lt;/&gt;</text>
-          <rect x="62" y="79" width="48" height="4" rx="2" fill="#3c3c3b" />
+          <rect x="72" y="24" width="26" height="20" fill="#262882" />
+          <rect x="74" y="26" width="22" height="16" fill="#1B1E5E" />
+          <text x="85" y="38" fontSize="9" fontFamily="monospace" fill="#58B896" textAnchor="middle">&lt;/&gt;</text>
+          <rect x="68" y="44" width="34" height="4" fill="#3C3C3B" />
         </g>
       )}
-      {/* paintbrush + palette (CSS) */}
+      {/* Zei-green brush (CSS) */}
       {painting && (
         <g>
-          <circle cx="98" cy="30" r="10" fill="#fff" />
-          <circle cx="94" cy="27" r="2.5" fill="#4347e8" />
-          <circle cx="101" cy="26" r="2.5" fill="#58b896" />
-          <circle cx="103" cy="33" r="2.5" fill="#262882" />
-          <path d="M92 40 L84 52" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-          <path d="M84 52 L80 58 L86 56 Z" fill="#4347e8" />
+          <rect x="80" y="12" width="4" height="20" fill="#FFFFFF" />
+          <rect x="76" y="32" width="12" height="8" fill="#58B896" />
+          <rect x="78" y="40" width="8" height="4" fill="#4AA886" />
         </g>
       )}
-      {/* paws */}
-      <ellipse cx="42" cy="78" rx="7" ry="4" fill="#4aa886" />
-      <ellipse cx="62" cy="78" rx="7" ry="4" fill="#4aa886" />
     </svg>
   );
 }
