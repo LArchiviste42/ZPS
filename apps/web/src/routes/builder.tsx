@@ -646,8 +646,15 @@ const DEMO_REPORT = {
 
 const DEFAULT_CSS = `:root{--primary:#262882;--secondary:#3c3c3b;--tertiary:#58b896;--fourth:rgba(88,184,150,0.18);}
 body{font-family:'Poppins',Arial,sans-serif;font-size:14px;color:var(--secondary);padding:24px;}
-h1{color:var(--primary);font-size:32px;font-weight:700;} h2{color:var(--primary);font-size:24px;font-weight:600;margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:3px solid var(--tertiary);} h3{color:var(--secondary);font-size:20px;font-weight:600;margin-top:14px;}
-a{color:var(--primary);} table{background-color:var(--fourth);font-size:small;width:100%;table-layout:fixed;} thead{background-color:var(--primary);} thead tr th, thead tr th *{color:#fff;font-weight:600;}`;
+h1{color:var(--primary);font-size:32px;font-weight:700;margin-bottom:16px;}
+h2{color:var(--primary);font-size:24px;font-weight:600;margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:3px solid var(--tertiary);}
+h3{color:var(--secondary);font-size:20px;font-weight:600;margin-top:14px;margin-bottom:10px;}
+h4{color:var(--secondary);font-size:14px;font-weight:500;margin-top:10px;}
+a{color:var(--primary);text-decoration:none;} a:hover{text-decoration:underline;}
+table{background-color:var(--fourth);font-size:small;width:100%;table-layout:fixed;border-collapse:collapse;}
+thead{background-color:var(--primary);} thead tr th, thead tr th *{color:#fff;font-weight:600;}
+tbody tr td{padding:6px 8px;border-bottom:1px solid rgba(60,60,59,0.15);} tbody tr:nth-child(even){background-color:rgba(255,255,255,0.35);}
+.editor-kpi div div{border-radius:12px;padding:10px;background-color:var(--fourth);}`;
 
 function hashOf(text: string): number {
   let h = 0;

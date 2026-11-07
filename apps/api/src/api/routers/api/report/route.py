@@ -115,7 +115,7 @@ RÈGLES DU JSON (structure) :
 7. Parcours les indicateurs dans l'ordre fourni. locale "fr" par défaut.
 
 RÈGLES DU CSS (design) :
-1. Pars du template simplifié : variables :root --primary (logo/titres), --secondary (texte), --tertiary (liseré sous h2), --fourth (fond translucide rgba pour tables/cartes) ; police via @import Google Fonts + font-family ; h1-h4 ; a { color: var(--primary) } ; table { background-color: var(--fourth); width: 100%; table-layout: fixed; } ; thead { background-color: var(--primary) } ; thead th color #ffffff ; cartes KPI .editor-kpi div div { border-radius: 12px; padding: 10px; background-color: var(--fourth); }.
+1. Pars du template simplifié et personnalise TOUT ce qu'il permet : les 4 variables :root (--primary logo/titres, --secondary texte, --tertiary liseré sous h2, --fourth fond translucide rgba pour tables/cartes) ; la police (@import Google Fonts + font-family sur body ET sur chaque niveau de titre h1/h2/h3/h4 avec tailles et graisses propres) ; les liens a { color: var(--primary) } + a:hover ; les tables complètes (fond var(--fourth), thead fond var(--primary) avec th blancs, bordures, zébrage tbody tr:nth-child(even), alignement des cellules) ; les cartes KPI .editor-kpi div div { border-radius: 12px; padding: 10px; background-color: var(--fourth); }. GARDE table { width: 100%; table-layout: fixed; }.
 2. Personnalise avec la charte du client (son site web est donné) : couleurs principales et polices. Si la police est propriétaire, choisis un fallback Google Fonts proche et dis-le dans "notes".
 3. Interdits : aucune règle [data-id], aucun ciblage des conteneurs Editor.js (.ce-block etc.), aucun !important sur la mise en page des conteneurs. Garde table { width: 100%; table-layout: fixed; }.
 
