@@ -723,65 +723,58 @@ function Questionnaire({
   );
 }
 
-// Pixel-art "Le Chonk" in Mistral colors (M logo gradient: yellow #FFD800 -> orange #FF8205 -> red #E10500),
-// working on a PC (JSON mode) and/or painting with a Zei-green brush (#58B896, CSS mode).
-const CAT_MAP = [
-  "................",
-  "...OO......OO...",
-  "..OYYO....OYYO..",
-  "..OYYYYYYYYYYO..",
-  ".OYWWKYYYYKWWYO.",
-  ".OYYYYYYYYYYYYO.",
-  "..OYYYKKKKYYYO..",
-  "..OOYYYYYYYYOO..",
-  ".OOYYYYYYYYYYOO.",
-  "OOYYYYYYYYYYYYOO",
-  "OORYYYYYYYYYYROO",
-  "OOOOOOOOOOOOOOOO",
-];
-const CAT_COLORS: Record<string, string> = { O: "#FF8205", Y: "#FFD800", R: "#E10500", W: "#FFFFFF", K: "#262882" };
-
 function ChonkThinking() {
-  // Gros chat pixel art orange (style Mistral) qui joue avec UNE balle verte portant le logo Zei.
+  // Gros chat orange (style Mistral) qui joue avec une pelotte de laine verte Zei, fil qui se déroule.
   return (
     <svg
-      viewBox="0 0 120 84"
+      viewBox="0 0 140 96"
       className="chonk-bob h-full w-auto"
-      shapeRendering="crispEdges"
       role="img"
-      aria-label="Zai (Le Chonk), chaton pixel art orange qui joue avec une balle Zei"
+      aria-label="Zai (Le Chonk), gros chat orange qui joue avec une pelotte de laine verte Zei"
     >
-      {/* balle verte Zei (logo feuille blanche) qui rebondit */}
-      <g className="chonk-juggle">
-        <rect x="88" y="34" width="14" height="5" fill="#58B896" />
-        <rect x="84" y="39" width="22" height="12" fill="#58B896" />
-        <rect x="88" y="51" width="14" height="5" fill="#58B896" />
-        {/* feuille blanche du logo Zei sur la balle */}
-        <rect x="93" y="41" width="4" height="8" fill="#FFFFFF" />
-        <rect x="97" y="43" width="5" height="4" fill="#FFFFFF" />
+      {/* fil de laine qui se déroule */}
+      <path
+        className="chonk-thread"
+        d="M112 78 C 126 82, 132 70, 120 66 C 108 62, 100 74, 88 72"
+        stroke="#58B896"
+        strokeWidth="2.5"
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* pelotte de laine verte Zei qui roule */}
+      <g className="chonk-ball">
+        <circle cx="104" cy="72" r="14" fill="#58B896" />
+        <path d="M92 68 Q104 62 116 68 M91 74 Q104 68 117 74 M94 80 Q104 74 114 80" stroke="#3E8E6E" strokeWidth="1.6" fill="none" />
+        <circle cx="104" cy="72" r="14" fill="none" stroke="#4AA886" strokeWidth="1.5" />
       </g>
       {/* queue */}
       <g className="chonk-tail">
-        <rect x="2" y="60" width="5" height="5" fill="#FF8205" />
-        <rect x="2" y="55" width="5" height="5" fill="#FF8205" />
-        <rect x="7" y="50" width="5" height="5" fill="#FFD800" />
+        <path d="M22 70 Q10 66 12 54" stroke="#FF8205" strokeWidth="7" fill="none" strokeLinecap="round" />
       </g>
-      {/* corps du chaton pixel art (dégradé Mistral) */}
-      {CAT_MAP.map((row, r) =>
-        [...row].map((ch, c) => {
-          const fill = CAT_COLORS[ch];
-          if (!fill || (r === 4 && (ch === "W" || ch === "K"))) return null;
-          return <rect key={`${r}-${c}`} x={14 + c * 4} y={28 + r * 4} width="4" height="4" fill={fill} />;
-        }),
-      )}
+      {/* corps */}
+      <ellipse cx="52" cy="66" rx="30" ry="22" fill="#FF8205" />
+      <ellipse cx="52" cy="72" rx="22" ry="13" fill="#FFAF00" />
+      {/* tête */}
+      <circle cx="52" cy="36" r="24" fill="#FF8205" />
+      <path d="M34 24 L28 6 L46 16 Z" fill="#FF8205" />
+      <path d="M70 24 L76 6 L58 16 Z" fill="#FF8205" />
+      <path d="M36 20 L32 10 L43 15 Z" fill="#E10500" />
+      <path d="M68 20 L72 10 L61 15 Z" fill="#E10500" />
       {/* yeux qui clignent */}
       <g className="chonk-eyes">
-        {[3, 4, 10, 11].map((c) => (
-          <rect key={c} x={14 + c * 4} y={44} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
-        ))}
+        <circle cx="43" cy="34" r="3.4" fill="#262882" />
+        <circle cx="61" cy="34" r="3.4" fill="#262882" />
       </g>
-      {/* patte qui pousse la balle */}
-      <rect x="76" y="66" width="12" height="5" fill="#FF8205" />
+      <path d="M48 43 Q52 47 56 43" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* moustaches */}
+      <path d="M28 40 L16 37 M28 45 L16 47 M76 40 L88 37 M76 45 L88 47" stroke="#FFD8B0" strokeWidth="1.6" strokeLinecap="round" />
+      {/* patte qui bat la pelotte */}
+      <g className="chonk-paw">
+        <rect x="66" y="56" width="22" height="9" rx="4.5" fill="#FF8205" />
+      </g>
+      {/* pattes */}
+      <ellipse cx="42" cy="86" rx="8" ry="4.5" fill="#E8730A" />
+      <ellipse cx="62" cy="86" rx="8" ry="4.5" fill="#E8730A" />
     </svg>
   );
 }

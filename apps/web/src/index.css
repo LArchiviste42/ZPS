@@ -124,6 +124,47 @@
   animation: chonk-juggle 0.9s ease-in-out infinite;
 }
 
+@keyframes chonk-ball-roll {
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateX(14px) rotate(180deg);
+  }
+}
+
+.chonk-ball {
+  transform-origin: center;
+  animation: chonk-ball-roll 1.8s ease-in-out infinite;
+}
+
+@keyframes chonk-paw {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-28deg);
+  }
+}
+
+.chonk-paw {
+  transform-origin: 70px 62px;
+  animation: chonk-paw 0.9s ease-in-out infinite;
+}
+
+@keyframes chonk-thread {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.chonk-thread {
+  stroke-dasharray: 6 6;
+  animation: chonk-thread 0.8s linear infinite;
+} 
+
 .chonk-bob {
   animation: chonk-bob 1.4s ease-in-out infinite;
 }
@@ -150,7 +191,10 @@
   .chonk-bob,
   .chonk-tail,
   .chonk-eyes,
-  .chonk-juggle {
+  .chonk-juggle,
+  .chonk-ball,
+  .chonk-paw,
+  .chonk-thread {
     animation: none;
   }
 }
