@@ -333,6 +333,9 @@ function BuilderPage() {
               </div>
               {report.css && <DownloadCssButton css={report.css} />}
               {report.reportJson != null && <DownloadJsonButton reportJson={report.reportJson} />}
+              {(report.css || report.reportJson != null) && (
+                <p className="text-center text-xs text-white/50">à copier-coller dans Zei</p>
+              )}
             </div>
             <ChatColumn
               turns={turns}
@@ -473,7 +476,7 @@ function DownloadCssButton({ css }: { css: string }) {
       onClick={() => void action()}
       className="w-full rounded-2xl bg-zei-mint px-6 py-4 text-base font-extrabold uppercase tracking-wide text-zei-navy transition hover:brightness-110"
     >
-      {done ? "✓ Copié et téléchargé" : "⬇ Télécharger et copier-coller dans Zei"}
+      {done ? "✓ CSS copié et téléchargé" : "⬇ Télécharger le CSS"}
     </button>
   );
 }
@@ -493,7 +496,7 @@ function DownloadJsonButton({ reportJson }: { reportJson: unknown }) {
       onClick={action}
       className="w-full rounded-2xl border border-zei-mint bg-white/10 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zei-mint transition hover:bg-white/20"
     >
-      ⬇ Télécharger le JSON du rapport
+      ⬇ Télécharger le JSON
     </button>
   );
 }
