@@ -96,7 +96,7 @@ def list_entries() -> list[dict[str, Any]]:
     if _use_db():
         try:
             return _db_list()
-        except Exception:  # noqa: BLE001  DB down -> degrade to file view rather than 500
+        except Exception:
             logger.warning("history DB read failed, falling back to file", exc_info=True)
     return _file_list()
 
@@ -105,7 +105,7 @@ def get_entry(entry_id: str) -> dict[str, Any] | None:
     if _use_db():
         try:
             return _db_get(entry_id)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning("history DB read failed, falling back to file", exc_info=True)
     return _file_get(entry_id)
 
@@ -114,6 +114,6 @@ def save_entry(*, mode: str, client_name: str, summary: str, report_json: Any, c
     if _use_db():
         try:
             return _db_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning("history DB write failed, falling back to file", exc_info=True)
     return _file_save(mode=mode, client_name=client_name, summary=summary, report_json=report_json, css=css)

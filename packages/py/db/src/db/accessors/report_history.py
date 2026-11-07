@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db.engine import get_session_maker
 from db.models.report_history import ReportHistory
