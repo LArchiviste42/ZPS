@@ -36,7 +36,8 @@ def complete_json(
     for client_factory in client_factories:
         try:
             client = client_factory()
-        except Exception:  # noqa: BLE001
+        except Exception as err:  # noqa: BLE001
+            logger.warning("client build failed, skipping: %s", err)
             continue
         for model_name in models:
             for attempt in range(retries + 1):
