@@ -90,7 +90,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - Ne mentionne JAMAIS la protection contre les bots si "siteBrand" est absent ou si "siteBrand.blocked" n'est pas true.
-- Si "siteBrand.blocked" == true (site protégé contre les bots) : dis à l'utilisateur que le site est protégé par les bots et demande-lui d'envoyer une CAPTURE D'ÉCRAN de son site dans le chat ; ne génère pas le CSS sans.
+- Si "siteBrand.blocked" == true (vrai bot-wall constaté) : dis que le site est protégé par les bots et demande une CAPTURE D'ÉCRAN dans le chat ; ne génère pas le CSS sans.
+- Si "siteBrand.error" est présent (site non lisible depuis l'app, ex. proxy/egress) : ne dis PAS « protégé par les bots » — dis que tu n'as pas pu lire le site automatiquement et demande une capture d'écran (bouton « Ajouter un fichier »).
 - Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
 - Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth et SES polices pour les font-family — ne devine aucune autre couleur.
 - NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
@@ -124,8 +125,13 @@ def fetch_site_brand(url: str) -> dict:
     try:
         with httpx.Client(timeout=10, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
             resp = client.get(url)
-            if resp.status_code in (401, 403, 429) or "cloudflare" in resp.text[:5000].lower() or "just a moment" in resp.text[:5000].lower():
+            head = resp.text[:5000].lower()
+            bot_markers = ("cloudflare", "just a moment", "attention required", "captcha", "datadome", "perimeterx", "akamai", "access denied", "are you a robot", "verify you are human")
+            # Only a REAL bot-wall counts as blocked: a bare 403 from an egress proxy is not the site blocking us.
+            if resp.status_code in (401, 403, 429) and any(m in head for m in bot_markers):
                 return {"url": url, "blocked": True, "status": resp.status_code}
+            if resp.status_code >= 400:
+                return {"url": url, "error": f"HTTP {resp.status_code} (proxy/egress ?) — page non lisible automatiquement"}
             html = resp.text[:200_000]
             colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
             fonts = re.findall(r"font-family:\s*([^;}]+)", html)
@@ -318,6 +324,11 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
+    elif site_brand and site_brand.get("error"):
+        # Site unreachable from here (egress/proxy): NOT a bot block — offer the screenshot without claiming "blocked".
+        response.awaiting_file = True
+        if "capture" not in response.reply.lower():
+            response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
         final = complete_json(
@@ -385,6 +396,11 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
+    elif site_brand and site_brand.get("error"):
+        # Site unreachable from here (egress/proxy): NOT a bot block — offer the screenshot without claiming "blocked".
+        response.awaiting_file = True
+        if "capture" not in response.reply.lower():
+            response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):
