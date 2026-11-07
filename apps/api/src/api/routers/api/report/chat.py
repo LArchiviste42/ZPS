@@ -15,6 +15,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from . import _store
+from .jsonbuilder import build_report_json, parse_chat_params
 from .route import MODEL, SYSTEM_PROMPT, Mode, complete_json
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Quand le prochain élément attendu est un FICHIER (export matrice réseau CSV/XLSX, ou capture d'écran du site), mets "awaitingFile": true (le bouton "Ajouter un fichier" apparaîtra dans le chat) ; si c'est dans un lot, mets aussi le champ correspondant en "fields" avec "type": "file".
 - Quand tu demandes PLUSIEURS informations en même temps, ne les énumère pas en texte : remplis "fields" avec un questionnaire, un objet par champ : { "key": "organizationId", "label": "ID client (organizationId)", "type": "number", "placeholder": "ex. 49" }. Types : "text", "number", "file" (upload du CSV), "choice" (avec "choices": [...], ex. ["Oui","Non"]). Chaque champ indique le format de réponse attendu.
 - ORDRE DES DEMANDES (tous modes) : TOUJOURS commencer par le NOM DE L'ENTREPRISE (champ clientName, type "text") — il sert de nom dans l'historique — puis le reste. En mode JSON ensuite : d'abord le FICHIER matrice réseau (CSV ou XLSX, champ "type": "file"), PUIS les questions (organizationId + networkId toujours des NOMBRES "type": "number", puis exercices, ratio, sommaire, ligne/barre) (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné (JSON & CSS) : d'abord TOUTES les questions JSON (CSV, IDs, exercices, ratio, sommaire, ligne/barre) et on génère le JSON en phase 1 ; PUIS les questions CSS (nom du client, URL du site) et le CSS en phase 2 — jamais l'inverse.
+- En mode JSON (structure_only ou phase 1 du combiné), ne produis JAMAIS reportJson toi-même (laisse "reportJson": null) : le serveur construit le JSON à partir du CSV parsé. Mets "done": true quand toutes les infos sont collectées.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - Ne mentionne JAMAIS la protection contre les bots si "siteBrand" est absent ou si "siteBrand.blocked" n'est pas true.
@@ -416,6 +418,25 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     response = _parse(data)
     if site_brand:
         response.site_brand = site_brand
+    # In JSON modes the STRUCTURE is built server-side from the parsed CSV (never invented by the model).
+    if response.done and request.mode != "design_only" and indicators:
+        params = parse_chat_params(request.messages)
+        report, excluded_names = build_report_json(
+            indicators,
+            organization_id=params.get("organizationId"),
+            network_id=params.get("networkId"),
+            exercice_id_n_minus_1=params.get("exerciceIdNMinus1"),
+            year_n=params.get("yearN") or 2026,
+            year_n_minus_1=params.get("yearNMinus1") or 2025,
+            past_exercices=params.get("pastExercices") or 5,
+            chart_ratio=params.get("ratio") or "40/60",
+            sommaire=(params.get("sommaire") or "").lower().startswith("oui"),
+            chart_type=params.get("chartType") or "Ligne",
+            client_name=params.get("clientName") or "",
+        )
+        response.report_json = report
+        response.excluded = excluded_names
+        response.notes = (response.notes + " " if response.notes else "") + f"JSON construit depuis le CSV : {len(indicators)} indicateurs, {len(excluded_names)} NA/NM exclus."
     if site_brand and site_brand.get("blocked") and not request.css:
         # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
         response.awaiting_file = True

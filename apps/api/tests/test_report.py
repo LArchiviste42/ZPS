@@ -643,3 +643,36 @@ def test_json_invented_indicator_ids_are_rejected(client: TestClient, monkeypatc
     ids = chat_module._indicator_ids_in_report(body["reportJson"])
     assert "101" not in ids
     assert "412225" in ids
+
+
+def test_build_report_json_is_deterministic_and_csv_only() -> None:
+    from api.routers.api.report.jsonbuilder import build_report_json
+
+    indicators = [
+        {"theme": "Env", "subTheme": "GES", "category": "", "name": "Émissions GES", "type": "Nombre", "parentId": 412225, "flag": None},
+        {"theme": "Env", "subTheme": "GES", "category": "", "name": "Énergie", "type": "Nombre", "parentId": 412226, "flag": None},
+        {"theme": "Social", "subTheme": "Diversité", "category": "", "name": "Note", "type": "Narratif", "parentId": 7658, "flag": "NA"},
+    ]
+    report, excluded = build_report_json(
+        indicators,
+        organization_id=49,
+        network_id=727,
+        exercice_id_n_minus_1=2854,
+        year_n=2026,
+        year_n_minus_1=2025,
+        past_exercices=5,
+        chart_ratio="100/0",
+        sommaire=True,
+        chart_type="Ligne",
+        client_name="EDF",
+    )
+    assert report["version"] == "2.30.5"
+    ids = json.dumps(report)
+    assert "412225" in ids and "412226" in ids
+    assert "7658" not in ids  # NA exclu
+    assert excluded == ["Note"]
+    types = [b["type"] for b in report["blocks"]]
+    assert "header" in types and "chart" in types and "table_of_content" in types and "pageBreak" in types
+    chart = next(b for b in report["blocks"] if b["type"] == "chart")
+    assert chart["data"]["chart"]["chartType"] == "line"
+    assert all(isinstance(i["indicatorId"], int) for i in chart["data"]["chart"]["indicators"])
