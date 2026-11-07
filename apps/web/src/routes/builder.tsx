@@ -928,6 +928,25 @@ function ChonkThinking() {
 
 /* ---------- Aperçu du rapport (données fictives) ---------- */
 
+const ALLOWED_TAGS = new Set(["b", "i", "u", "em", "strong", "a", "br", "span", "p"]);
+
+function sanitizeHtml(html: unknown): string {
+  const text = String(html ?? "");
+  return text.replace(/<\s*(\/?)\s*([a-zA-Z0-9]+)([^>]*)>/g, (m, _close, tag) =>
+    ALLOWED_TAGS.has(tag.toLowerCase()) ? m : "",
+  );
+}
+
+const DEMO_PARAGRAPHS = [
+  "En 2026, notre consommation énergétique totale s'établit à 43 290 MWh, en baisse de 6 % par rapport à 2025, conformément à notre trajectoire de décarbonation.",
+  "Les émissions de GES (scopes 1 et 2) atteignent 8 701 tCO₂e, soit une réduction de 12 % sur un an, grâce aux actions de rénovation et au verdissement de notre mix énergétique.",
+  "La part d'énergie renouvelable progresse à 37 %, avec la mise en service de deux nouveaux sites solaires et un contrat d'achat d'électricité verte.",
+  "Notre politique achats responsables couvre désormais 64 % des fournisseurs évalués, avec un objectif de 80 % à horizon 2027.",
+];
+let demoParaIdx = 0;
+
+
+
 // Rapport de démonstration inspiré du module Zei « Énergie » (ESRS E1) : sert d'aperçu riche
 // quand aucun JSON n'a encore été généré (mode CSS seul ou phase 1 du mode combiné).
 const DEMO_REPORT = {
@@ -1098,7 +1117,8 @@ function renderBlocks(reportJson: any): string {
     } else if (b.type === "kpi_indicator") {
       html = renderKpi(b.data);
     } else if (b.type === "paragraph") {
-      html = `<p>${esc(b.data?.text)}</p>`;
+      const t = sanitizeHtml(b.data?.text);
+      html = `<p>${t || DEMO_PARAGRAPHS[demoParaIdx++ % DEMO_PARAGRAPHS.length]}</p>`;
     } else if (b.type === "quote") {
       html = `<blockquote style="border-left:3px solid var(--tertiary,#58b896);margin:12px 0;padding:8px 14px;background:var(--fourth,rgba(88,184,150,.15))">${esc(b.data?.text ?? b.data?.caption ?? "")}</blockquote>`;
     } else if (b.type === "line_separator") {
@@ -1107,9 +1127,11 @@ function renderBlocks(reportJson: any): string {
       const cols = (b.data?.cols ?? []).map((col: any) => `<div style="flex:1;min-width:0">${renderBlocks({ blocks: col?.blocks ?? [] })}</div>`).join("");
       html = `<div style="display:flex;gap:16px">${cols}</div>`;
     } else if (b.type === "text_indicators") {
-      html = `<p>Donnée narrative de démonstration pour l'indicateur ${esc(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? "")} — contenu généré à partir de la matrice réseau du client.</p>`;
+      const id = String(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? demoParaIdx++);
+      const v = fakeValue(id);
+      html = `<p>${DEMO_PARAGRAPHS[demoParaIdx++ % DEMO_PARAGRAPHS.length]} <em>(indicateur ${esc(id)} : ${v.toLocaleString("fr-FR")} — valeur de démonstration)</em></p>`;
     } else if (b.data?.text) {
-      html = `<p>${esc(b.data.text)}</p>`;
+      html = `<p>${sanitizeHtml(b.data.text) || DEMO_PARAGRAPHS[demoParaIdx++ % DEMO_PARAGRAPHS.length]}</p>`;
     }
     pages[pages.length - 1] += "\n" + html;
   }

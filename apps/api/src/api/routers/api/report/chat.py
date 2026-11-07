@@ -97,7 +97,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Si "siteBrand.blocked" == true (page de défi anti-bot constatée, ex. Cloudflare « Just a moment ») : dis que le site est protégé par les bots et demande une CAPTURE D'ÉCRAN dans le chat ; ne génère pas le CSS sans. Un simple 403/erreur réseau = "siteBrand.error" (voir règle suivante), jamais "bloqué par les bots".
 - Si "siteBrand.error" est présent (site non lisible depuis l'app, ex. proxy/egress) : ne dis PAS « protégé par les bots » — dis que tu n'as pas pu lire le site automatiquement et demande une capture d'écran (bouton « Ajouter un fichier »).
 - Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
-- Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth (--primary = la PREMIÈRE couleur de siteBrand.colors, la plus fréquente/dominante) et SES polices (première de siteBrand.fonts en priorité, avec @import Google Fonts si c'est une webfont connue) — ne devine aucune autre couleur.
+- Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth (--primary = la première couleur NON neutre de siteBrand.colors, la plus fréquente/dominante — jamais #ffffff/#000000) et SES polices (première de siteBrand.fonts en priorité, avec @import Google Fonts si c'est une webfont connue) — ne devine aucune autre couleur.
 - NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 - Ne demande JAMAIS de confirmation à l'utilisateur (« c'est bon ? », « voulez-vous que je génère ? », « puis-je commencer ? », « je génère ? ») : dès que tu as toutes les informations requises, génère IMMÉDIATEMENT (done=true avec le livrable). Tu peux afficher le message « Merci pour les infos. Je génère le JSON du rapport maintenant… » MAIS tu dois produire le livrable dans la MÊME réponse (done=true), sans attendre aucun clic. L'utilisateur peut affiner ensuite en langage naturel.
@@ -148,21 +148,35 @@ def fetch_site_brand(url: str) -> dict:
             html = resp.text[:200_000]
             colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
             fonts = re.findall(r"font-family:\s*([^;}]+)", html)
+            title = re.search(r"<title>([^<]+)</title>", html)
+            # Brand tokens FIRST: CSS custom properties in :root / inline styles carry the real palette.
+            var_colors = re.findall(r"--[\w-]*color[\w-]*\s*:\s*(#[0-9a-fA-F]{6})\b", html)
             for href in re.findall(r'<link[^>]+href=["\']([^"\']+\.css[^"\']*)["\']', html)[:3]:
                 css_url = href if href.startswith("http") else str(resp.url.join(href))
                 try:
                     css = client.get(css_url).text[:100_000]
+                    var_colors += re.findall(r"--[\w-]*color[\w-]*\s*:\s*(#[0-9a-fA-F]{6})\b", css)
                     colors += re.findall(r"#[0-9a-fA-F]{6}\b", css)
                     fonts += re.findall(r"font-family:\s*([^;}]+)", css)
-                except Exception as css_err:  # noqa: BLE001  one stylesheet failing must not sink the rest
+                    # Google Fonts families referenced by the stylesheet
+                    for fam in re.findall(r"fonts\.googleapis\.com/css2\?family=([^&\x27\"]+)", css + html):
+                        fonts.append(fam.replace("+", " "))
+                except Exception as css_err:  # noqa: BLE001
                     logger.warning("stylesheet fetch failed for %s: %s", css_url, css_err)
                     continue
             title = re.search(r"<title>([^<]+)</title>", html)
             # Dominant colors first (frequency), not alphabetical: the model picks --primary from the top.
             from collections import Counter
 
-            color_counts = Counter(c.lower() for c in colors)
-            top_colors = [c for c, _ in color_counts.most_common(16)]
+            def is_neutral(hexc: str) -> bool:
+                r, g, b = int(hexc[1:3], 16), int(hexc[3:5], 16), int(hexc[5:7], 16)
+                mx, mn = max(r, g, b) / 255, min(r, g, b) / 255
+                return mx - mn < 0.08 and (mx > 0.92 or mn < 0.08)  # near-white / near-black / pure gray
+
+            var_counts = Counter(c.lower() for c in var_colors if not is_neutral(c))
+            color_counts = Counter(c.lower() for c in colors if not is_neutral(c))
+            top_colors = [c for c, _ in var_counts.most_common(8)] + [c for c, _ in color_counts.most_common(16) if c not in var_counts]
+            top_colors = list(dict.fromkeys(top_colors))[:16]
             # Clean font list: strip !important, drop generic/icon fonts, keep distinctive families first.
             font_counts = Counter(f.strip().removesuffix("!important").strip() for f in fonts)
             generic = ("inherit", "icons", "helvetica", "arial", "sans-serif", "serif", "monospace")
