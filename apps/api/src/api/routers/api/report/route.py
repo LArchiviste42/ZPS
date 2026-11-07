@@ -4,7 +4,11 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
-from utils.mistral import caller_mistral_client, mistral_client, mistral_credential_configured
+from utils.mistral import (
+    caller_mistral_client,
+    mistral_client,
+    mistral_credential_configured,
+)
 
 MODEL = "mistral-large-4"
 
