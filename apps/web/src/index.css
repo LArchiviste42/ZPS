@@ -35,13 +35,14 @@
   }
 }
 
-/* Dark blue gradient, Zei 2026 style (deep navy → indigo), slowly animated. */
+/* Dark blue gradient, Zei 2026 style (deep navy → indigo with glows), slowly animated. */
 .zei-animated-bg {
   background:
-    radial-gradient(ellipse 55% 40% at 15% 15%, rgba(88, 184, 150, 0.22), transparent 60%),
-    radial-gradient(ellipse 60% 55% at 85% 85%, rgba(67, 71, 232, 0.45), transparent 65%),
-    linear-gradient(155deg, #10123a 0%, #1b1e5e 30%, #262882 60%, #3a3fc4 100%);
-  background-size: 220% 220%, 220% 220%, 300% 300%;
+    radial-gradient(ellipse 50% 35% at 18% 8%, rgba(67, 71, 232, 0.4), transparent 60%),
+    radial-gradient(ellipse 45% 40% at 82% 92%, rgba(88, 184, 150, 0.18), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 50% 50%, rgba(38, 40, 130, 0.25), transparent 70%),
+    linear-gradient(160deg, #0b0d2e 0%, #141640 35%, #262882 70%, #3a3fc4 100%);
+  background-size: 220% 220%, 220% 220%, 220% 220%, 300% 300%;
   animation: zei-bg-pan 18s ease-in-out infinite;
 }
 

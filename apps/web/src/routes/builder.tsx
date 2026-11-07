@@ -198,7 +198,7 @@ function BuilderPage() {
 
   return (
     <main className="zei-animated-bg flex min-h-full flex-col">
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-white/15 bg-zei-navy/95 px-4 py-3 backdrop-blur">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-3 border-b border-white/10 bg-transparent px-4 py-3">
         <button type="button" onClick={() => setView("home")} className="flex items-center gap-3" title="Accueil">
           <img src="/logo-zei-white.svg" alt="Zei" className="h-7 w-auto" />
           <h1 className="text-lg font-extrabold uppercase tracking-wide text-white">Reporting Builder</h1>
