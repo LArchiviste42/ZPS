@@ -119,22 +119,42 @@ function BuilderPage() {
 
   return (
     <main className="zei-animated-bg min-h-full">
-      <section className="mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center gap-4 px-6 py-16">
-        {MODES.map((m) => (
-          <button
-            key={m.value}
-            type="button"
-            onClick={() => pickMode(m.value)}
-            className={`flex w-full items-center gap-4 rounded-2xl border px-6 py-5 text-left transition hover:scale-[1.01] ${
-              mode === m.value
+      <section className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center gap-4 px-6 py-16">
+        {(() => {
+          const [main, ...rest] = MODES;
+          const btnClass = (active: boolean, extra: string) =>
+            `flex items-center justify-center gap-4 border text-center text-white transition hover:scale-[1.01] ${
+              active
                 ? "border-zei-mint bg-white/20 ring-2 ring-zei-mint"
                 : "border-white/25 bg-white/10 hover:bg-white/20"
-            }`}
-          >
-            <span className="shrink-0 text-zei-mint">{m.icon}</span>
-            <span className="text-lg font-bold text-white">{m.title}</span>
-          </button>
-        ))}
+            } ${extra}`;
+          return (
+            <>
+              <button
+                key={main.value}
+                type="button"
+                onClick={() => pickMode(main.value)}
+                className={btnClass(mode === main.value, "w-full rounded-2xl px-6 py-8")}
+              >
+                <span className="shrink-0 text-zei-mint">{main.icon}</span>
+                <span className="text-xl font-extrabold uppercase tracking-wide">{main.title}</span>
+              </button>
+              <div className="grid w-full grid-cols-2 gap-4">
+                {rest.map((m) => (
+                  <button
+                    key={m.value}
+                    type="button"
+                    onClick={() => pickMode(m.value)}
+                    className={btnClass(mode === m.value, "rounded-lg px-4 py-6")}
+                  >
+                    <span className="shrink-0 text-zei-mint">{m.icon}</span>
+                    <span className="text-sm font-bold uppercase">{m.title}</span>
+                  </button>
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </section>
 
       {mode && (
