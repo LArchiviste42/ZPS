@@ -524,9 +524,10 @@ function BuilderPage() {
                       )
                     }
                     title="Laisser ML4 améliorer le design"
-                    className="absolute left-2 top-2 rounded-full bg-zei-mint px-2.5 py-1.5 text-xs font-bold text-zei-navy transition hover:brightness-110 disabled:opacity-50"
+                    className="absolute left-2 top-2 rounded-full px-3 py-1.5 text-xs font-extrabold text-[#262882] shadow transition hover:brightness-110 disabled:opacity-50"
+                    style={{ background: "linear-gradient(90deg,#FFD800 0%,#FFAF00 25%,#FF8205 55%,#FA500F 80%,#E10500 100%)" }}
                   >
-                    ✨ Améliorer le design
+                    ✨ Améliorer avec Le Chonk
                   </button>
                 )}
                 <button
