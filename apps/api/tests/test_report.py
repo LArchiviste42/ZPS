@@ -631,6 +631,7 @@ def test_json_invented_indicator_ids_are_rejected(client: TestClient, monkeypatc
         {"reply": "voici", "done": True, "reportJson": {"blocks": [{"type": "chart", "data": {"chart": {"indicators": [{"type": "IndicatorValue", "indicatorId": 101}]}}}]}},
         # corrective: uses the real csv id
         {"reply": "corrigé", "done": True, "reportJson": {"blocks": [{"type": "table", "data": {"table": {"columns": [], "indicatorIds": ["412225"]}}}]}},
+        {"reply": "corrigé", "done": True, "reportJson": {"blocks": [{"type": "table", "data": {"table": {"columns": [], "indicatorIds": ["412225"]}}}]}},
     ])
     monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **k: _completion(next(outputs)))))
     res = client.post(
