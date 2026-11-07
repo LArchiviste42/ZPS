@@ -915,7 +915,7 @@ function ChonkThinking() {
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-1">
       <img
-        src="/logo-zei-white.svg"
+        src="/logo-zei-icon.svg"
         alt="Zei"
         className="chonk-bounce h-16 w-auto"
         role="img"
