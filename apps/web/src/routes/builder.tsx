@@ -108,6 +108,7 @@ function BuilderPage() {
   const [report, setReport] = useState<Report | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyQuery, setHistoryQuery] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [input, setInput] = useState("");
@@ -135,8 +136,18 @@ function BuilderPage() {
   const toggleHistory = () => {
     const next = !historyOpen;
     setHistoryOpen(next);
-    if (next) void refreshHistory();
+    if (next) {
+      setHistoryQuery("");
+      void refreshHistory();
+    }
   };
+
+  const filteredHistory = history.filter((h) =>
+    (h.client_name || "").toLowerCase().includes(historyQuery.trim().toLowerCase()),
+  );
+
+  const modeTags = (mode: string): string[] =>
+    mode === "structure_only" ? ["JSON"] : mode === "design_only" ? ["CSS"] : ["JSON", "CSS"];
 
   const loadHistoryEntry = async (id: string) => {
     const { ok, data } = await fetchJson(`/api/report/history/${id}`);
@@ -258,19 +269,54 @@ function BuilderPage() {
       {view === "chat" && (
       <div className={`mx-auto flex w-full ${report ? "max-w-6xl" : "max-w-3xl"} flex-1 flex-col gap-4 px-6 py-6`}>
         {historyOpen && (
-          <aside className="rounded-2xl border border-white/20 bg-zei-navy/80 p-4">
-            <h2 className="mb-2 text-sm font-bold uppercase text-white">Historique des demandes</h2>
-            {history.length === 0 && <p className="text-sm text-white/60">Aucune demande pour l'instant.</p>}
-            <ul className="flex flex-col gap-2">
-              {history.map((h) => (
+          <aside className="fixed inset-y-0 right-0 z-20 flex w-80 max-w-full flex-col gap-3 border-l border-white/15 bg-zei-navy/95 p-4 shadow-2xl backdrop-blur">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold uppercase text-white">Historique des demandes</h2>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="rounded-full border border-white/25 px-2.5 py-1 text-xs font-bold text-white/80 hover:bg-white/20"
+              >
+                ✕
+              </button>
+            </div>
+            <input
+              value={historyQuery}
+              onChange={(e) => setHistoryQuery(e.target.value)}
+              placeholder="Rechercher une entreprise…"
+              className="w-full rounded-xl border border-white/25 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-white/50 focus:border-zei-mint focus:ring-2 focus:ring-zei-mint/40"
+            />
+            {filteredHistory.length === 0 && (
+              <p className="text-sm text-white/60">
+                {history.length === 0 ? "Aucune demande pour l'instant." : "Aucun résultat pour cette recherche."}
+              </p>
+            )}
+            <ul className="flex flex-1 flex-col gap-2 overflow-y-auto">
+              {filteredHistory.map((h) => (
                 <li key={h.id}>
                   <button
                     type="button"
                     onClick={() => void loadHistoryEntry(h.id)}
                     className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-sm text-white hover:bg-white/20"
                   >
-                    <span className="font-bold">{h.client_name || "Sans nom"}</span> · {h.mode} ·{" "}
-                    <span className="text-white/60">{new Date(h.created_at).toLocaleString("fr-FR")}</span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className="font-bold">{h.client_name || "Sans nom"}</span>
+                      <span className="flex gap-1">
+                        {modeTags(h.mode).map((tag) => (
+                          <span
+                            key={tag}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
+                              tag === "JSON" ? "bg-zei-indigo text-white" : "bg-zei-mint text-zei-navy"
+                            }`}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-xs text-white/60">
+                      {new Date(h.created_at).toLocaleString("fr-FR")}
+                    </span>
                     <span className="block text-xs text-white/60">{h.summary}</span>
                   </button>
                 </li>
