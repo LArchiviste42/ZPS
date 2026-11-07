@@ -2,7 +2,6 @@ import csv
 import io
 import json
 import logging
-
 from typing import Literal
 
 from fastapi import APIRouter
