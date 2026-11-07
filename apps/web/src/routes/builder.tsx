@@ -4,11 +4,12 @@ import { createFileRoute } from "@tanstack/react-router";
 
 type Mode = "structure_and_design" | "design_only" | "structure_only";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { role: "user" | "assistant"; content: string; options?: string[] };
 
 type ChatResponse = {
   reply: string;
   done: boolean;
+  options: string[];
   reportJson: unknown | null;
   css: string | null;
   excluded: string[];
@@ -167,9 +168,8 @@ function BuilderPage() {
     setHistoryOpen(false);
   };
 
-  const send = async (event: FormEvent) => {
-    event.preventDefault();
-    const text = input.trim();
+  const sendText = async (raw: string) => {
+    const text = raw.trim();
     if (!text || pending) return;
     const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
     const historyForApi = [...turns, userTurn].map((t) => ({ role: t.role, content: t.content }));
@@ -185,7 +185,7 @@ function BuilderPage() {
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
       });
-      setTurns((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         await refreshHistory();
@@ -197,6 +197,11 @@ function BuilderPage() {
       setCsvText("");
       setCsvName("");
     }
+  };
+
+  const send = (event: FormEvent) => {
+    event.preventDefault();
+    void sendText(input);
   };
 
   const onFile = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -377,6 +382,7 @@ function BuilderPage() {
               csvName={csvName}
               onFile={onFile}
               onSend={send}
+              onSendText={(t) => void sendText(t)}
               bottomRef={bottomRef}
             />
           </div>
@@ -417,6 +423,7 @@ function BuilderPage() {
           csvName={csvName}
           onFile={onFile}
           onSend={send}
+          onSendText={(t) => void sendText(t)}
           bottomRef={bottomRef}
         />
         )}
@@ -436,6 +443,7 @@ function ChatColumn({
   csvName,
   onFile,
   onSend,
+  onSendText,
   bottomRef,
 }: {
   turns: ChatTurn[];
@@ -447,6 +455,7 @@ function ChatColumn({
   csvName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
+  onSendText: (text: string) => void;
   bottomRef: React.Ref<HTMLDivElement>;
 }) {
   return (
@@ -466,6 +475,21 @@ function ChatColumn({
                 </span>
               )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
+              {turn.role === "assistant" && turn.options && turn.options.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {turn.options.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={pending}
+                      onClick={() => onSendText(opt)}
+                      className="rounded-full border border-zei-mint bg-zei-mint/20 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-zei-mint hover:text-zei-navy disabled:opacity-50"
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {pending && (
@@ -721,7 +745,7 @@ function renderChart(data: any): string {
   } else {
     indicators.forEach((ind, idx) => {
       const base = fakeValue(String(ind.indicatorId));
-      const pts = years.map((y, i) => ({ x: xFor(i), y: height - pad - ((base + i * 37) % 180) }));
+      const pts = years.map((_y, i) => ({ x: xFor(i), y: height - pad - ((base + i * 37) % 180) }));
       marks += `<polyline fill="none" stroke="${colors[idx % 3]}" stroke-width="2.5" points="${pts.map((p) => `${p.x},${p.y}`).join(" ")}" />`;
     });
   }

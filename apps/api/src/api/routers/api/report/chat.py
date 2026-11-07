@@ -37,6 +37,8 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     done: bool = False
+    # Choix cliquables proposés à l'utilisateur quand la question est fermée (oui/non, ligne/barre…).
+    options: list[str] = Field(default_factory=list)
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
     excluded: list[str] = Field(default_factory=list)
@@ -59,7 +61,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Dès que tu as tout ce qu'il faut :
   * en mode combiné, produis le CSS ET le JSON dans la même réponse (présente d'abord le CSS dans "reply", puis le JSON aussitôt après, sans attendre) ;
   * réponds avec "done": true en incluant reportJson et/ou css.
-- Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
+- Quand tu poses une question fermée (oui/non ou choix unique entre plusieurs options), remplis "options" avec les choix cliquables en 1 clic, ex. ["Oui", "Non"] ou ["Ligne", "Barre"].
+- Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - NE DIS JAMAIS que tu vas consulter le site web toi-même : tu ne peux pas naviguer. Demande l'URL du site, puis produis le CSS directement : charte connue du client si elle est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande à l'utilisateur les codes hex / polices de la charte.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
@@ -122,6 +125,7 @@ def _parse(data: dict) -> ChatResponse:
     return ChatResponse(
         reply=str(data.get("reply") or ""),
         done=bool(data.get("done")),
+        options=[str(o) for o in (data.get("options") or [])],
         report_json=data.get("reportJson"),
         css=data.get("css"),
         excluded=list(data.get("excluded") or []),
