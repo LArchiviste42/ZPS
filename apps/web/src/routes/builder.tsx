@@ -217,6 +217,18 @@ function BuilderPage() {
         <button type="button" onClick={() => setView("home")} className="flex items-center gap-3" title="Accueil">
           <img src="/logo-zei-white.svg" alt="Zei" className="h-7 w-auto" />
           <h1 className="text-lg font-extrabold uppercase tracking-wide text-white">Reporting Builder</h1>
+          <span className="flex items-center gap-1 text-[10px] font-semibold normal-case text-white/60">
+            powered by Mistral
+            <svg viewBox="0 0 18 12" className="h-3 w-auto rounded-[2px]" aria-label="Union européenne">
+              <rect width="18" height="12" fill="#003399" />
+              {Array.from({ length: 12 }, (_, i) => {
+                const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
+                return (
+                  <circle key={i} cx={9 + 4.2 * Math.cos(angle)} cy={6 + 4.2 * Math.sin(angle)} r="0.8" fill="#FFCC00" />
+                );
+              })}
+            </svg>
+          </span>
         </button>
         <nav className="ml-auto flex items-center gap-2">
           {MODES.map((m) => (
