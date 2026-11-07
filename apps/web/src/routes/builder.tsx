@@ -326,7 +326,7 @@ function BuilderPage() {
       )}
 
       {view === "chat" && (
-      <div className={`mx-auto flex w-full ${report ? "max-w-6xl" : "max-w-3xl"} flex-1 flex-col gap-4 px-6 py-6`}>
+      <div className={`mx-auto flex w-full ${report ? "max-w-none px-2" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6`}>
         {historyOpen && (
           <aside className="fixed inset-y-0 right-0 z-20 flex w-80 max-w-full flex-col gap-3 border-l border-white/15 bg-zei-navy/95 p-4 shadow-2xl backdrop-blur">
             <div className="flex items-center justify-between">
@@ -397,7 +397,7 @@ function BuilderPage() {
         )}
 
         {report && (
-          <div className="grid flex-1 gap-4 lg:grid-cols-2">
+          <div className="grid flex-1 gap-4 lg:grid-cols-[3fr_2fr]">
             <div className="flex flex-col gap-3">
               <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white">
                 <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report, 0.5)} />

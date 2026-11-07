@@ -279,4 +279,22 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.excluded = fixed.excluded or response.excluded
         if not response.notes and fixed.notes:
             response.notes = fixed.notes
+    if response.done and (response.report_json or response.css):
+        client_name = ""
+        for m in reversed(request.messages):
+            if m.role == "user" and m.content:
+                client_name = m.content[:80]
+                break
+        try:
+            entry = _store.save_entry(
+                mode=request.mode,
+                client_name=client_name,
+                summary=response.reply[:200] or "livrable généré",
+                report_json=response.report_json,
+                css=response.css,
+            )
+            response.history_id = entry["id"]
+        except OSError:
+            # History is best-effort: never fail the request (and lose the deliverable) over it.
+            logger.warning("history save failed", exc_info=True)
     return response
