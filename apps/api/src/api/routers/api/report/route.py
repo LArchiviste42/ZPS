@@ -13,28 +13,43 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def complete_json(system_prompt: str, user_payload: str, *, model: str = MODEL, retries: int = 3) -> dict:
-    """Call the model in JSON mode and parse its answer; a few retries, then a clean 502.
+FALLBACK_MODELS = ("mistral-medium-latest", "mistral-small-latest")
 
-    The gateway proxy sometimes answers 200 with an empty body (transient); without this
-    guard the route crashes with a raw parse error instead of answering the chat.
+
+def complete_json(
+    system_prompt: str,
+    user_payload: str,
+    *,
+    model: str = MODEL,
+    retries: int = 2,
+    fallback: bool = True,
+) -> dict:
+    """Call the model in JSON mode and parse its answer; retries, then automatic fallback
+    to faster models, then a clean 502. The gateway proxy can answer 200 with an empty body
+    or 504 on slow calls; without this guard the route crashes instead of answering the chat.
+    The model choice is never asked to the user — it is decided here.
     """
-    for attempt in range(retries + 1):
-        try:
-            completion = caller_mistral_client().chat.complete(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_payload},
-                ],
-                response_format={"type": "json_object"},
-            )
-            content = completion.choices[0].message.content
-            if not isinstance(content, str) or not content.strip():
-                raise ValueError("empty completion")
-            return json.loads(content)
-        except Exception as err:  # noqa: BLE001  any provider/parse failure becomes a clean 502
-            logger.warning("report model call failed (attempt %d/%d): %s", attempt + 1, retries + 1, err)
+    models = (model, *FALLBACK_MODELS) if fallback else (model,)
+    for model_name in models:
+        for attempt in range(retries + 1):
+            try:
+                completion = caller_mistral_client().chat.complete(
+                    model=model_name,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_payload},
+                    ],
+                    response_format={"type": "json_object"},
+                )
+                content = completion.choices[0].message.content
+                if not isinstance(content, str) or not content.strip():
+                    raise ValueError("empty completion")
+                return json.loads(content)
+            except Exception as err:  # noqa: BLE001  any provider/parse failure moves to the next attempt/model
+                logger.warning(
+                    "report model call failed (model=%s attempt %d/%d): %s",
+                    model_name, attempt + 1, retries + 1, err,
+                )
     raise HTTPException(status_code=502, detail="Zai (Le Chonk) n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
 
 Mode = Literal["structure_and_design", "design_only", "structure_only"]

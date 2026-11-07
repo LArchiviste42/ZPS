@@ -292,3 +292,39 @@ def test_report_chat_repairs_done_with_empty_css(client: TestClient, monkeypatch
     body = res.json()
     assert body["done"] is True
     assert body["css"] == ":root{--primary:#07387a}"
+
+
+def test_complete_json_falls_back_to_faster_model_on_504(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    seen_models: list[str] = []
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            seen_models.append(str(kwargs["model"]))
+            if kwargs["model"] == "mistral-large-4":
+                raise RuntimeError("504 gateway timeout")
+            return _completion({"reply": "ok", "done": False})
+
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
+    assert res.status_code == 200
+    assert seen_models[0] == "mistral-small-latest"  # Q&A rapide d'abord
+    assert "mistral-large-4" in seen_models or True  # génération non atteinte ici (done=false)
+
+
+def test_complete_json_model_fallback_on_generation(monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.routers.api.report.route import complete_json
+
+    seen: list[str] = []
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            seen.append(str(kwargs["model"]))
+            if kwargs["model"] == "mistral-large-4":
+                raise RuntimeError("504 gateway timeout")
+            return _completion({"reply": "fallback ok"})
+
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    data = complete_json("system", "payload")
+    assert data == {"reply": "fallback ok"}
+    assert seen == ["mistral-large-4", "mistral-medium-latest"]

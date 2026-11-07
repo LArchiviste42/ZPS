@@ -139,7 +139,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "currentReportJson": request.report_json,
         "currentCss": request.css,
     }
-    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2)
+    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False)
     response = _parse(data)
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
