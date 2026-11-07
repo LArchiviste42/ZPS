@@ -620,3 +620,25 @@ def test_403_without_challenge_page_is_error_not_blocked() -> None:
     assert out.get("blocked") is not True
     assert "error" in out
     monkeypatch.undo()
+
+
+def test_json_invented_indicator_ids_are_rejected(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    outputs = iter([
+        # 1st: invents id "101" (not in csv)
+        {"reply": "voici", "done": True, "reportJson": {"blocks": [{"type": "chart", "data": {"chart": {"indicators": [{"type": "IndicatorValue", "indicatorId": 101}]}}}]}},
+        # corrective: uses the real csv id
+        {"reply": "corrigé", "done": True, "reportJson": {"blocks": [{"type": "table", "data": {"table": {"columns": [], "indicatorIds": ["412225"]}}}]}},
+    ])
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **k: _completion(next(outputs)))))
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "structure_only", "messages": [{"role": "user", "content": "csv ici"}], "csv": "THEME;INDICATOR;TYPE;PARENT ID\nEnv;GES;Nombre;412225"},
+    )
+    body = res.json()
+    assert body["done"] is True
+    ids = chat_module._indicator_ids_in_report(body["reportJson"])
+    assert "101" not in ids
+    assert "412225" in ids

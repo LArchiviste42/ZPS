@@ -426,18 +426,32 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
-    # Completeness guard: in JSON modes, EVERY csv indicator must appear in the generated JSON.
+    # Completeness guard: in JSON modes, the JSON structure must come ONLY from the CSV —
+    # every csv indicator present, no invented id, no NA/NM indicator.
     if response.done and response.report_json and request.mode != "design_only" and indicators:
         expected = {str(i.get("parentId") or i.get("name")) for i in indicators if i.get("parentId") is not None or i.get("name")}
         expected = {e for e in expected if e}
-        for _ in range(4):  # minimum de relances de complétude avant abandon
+        excluded_na_nm = {str(i.get("parentId") or i.get("name")) for i in indicators if i.get("flag") in {"NA", "NM"}}
+        for _ in range(4):  # minimum de relances avant abandon
             present = _indicator_ids_in_report(response.report_json)
-            missing = sorted(expected - present)
-            if not missing:
+            missing = sorted(expected - present - excluded_na_nm)
+            invented = sorted(present - expected)
+            na_nm_leaked = sorted(present & excluded_na_nm)
+            if not missing and not invented and not na_nm_leaked:
                 break
-            logger.warning("JSON incomplet: %d indicateurs manquants, régénération", len(missing))
+            logger.warning(
+                "JSON invalide: %d manquants, %d inventés, %d NA/NM — régénération",
+                len(missing), len(invented), len(na_nm_leaked),
+            )
+            correction = "CORRECTION : la structure du JSON doit venir UNIQUEMENT du CSV. "
+            if invented:
+                correction += "Retire les ID INVENTÉS (interdits, ils n'existent pas dans le CSV) : " + ", ".join(invented[:100]) + ". "
+            if na_nm_leaked:
+                correction += "Retire les indicateurs NA/NM (exclus du rapport) : " + ", ".join(na_nm_leaked[:100]) + ". "
+            if missing:
+                correction += "Ajoute TOUS les indicateurs manquants du CSV : " + ", ".join(missing[:200]) + (" …" if len(missing) > 200 else "")
             corrected = complete_json(
-                CHAT_SYSTEM_PROMPT + "\nCORRECTION : le JSON généré omet des indicateurs. Ajoute-les TOUS (blocs chart/table/text_indicators) : " + ", ".join(missing[:200]) + (" …" if len(missing) > 200 else ""),
+                CHAT_SYSTEM_PROMPT + "\n" + correction,
                 json.dumps(payload, ensure_ascii=False),
                 model=MODEL,
                 retries=1,
@@ -447,9 +461,17 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             fixed = _parse(corrected)
             if fixed.report_json:
                 candidate = _indicator_ids_in_report(fixed.report_json)
-                if len(candidate & expected) > len(present & expected):
+                better = (len(candidate & expected) - len(candidate - expected)) > (len(present & expected) - len(present - expected))
+                if better:
                     response.report_json = fixed.report_json
-                    response.notes = (response.notes + " " if response.notes else "") + f"{len(missing)} indicateurs ajoutés."
+                    note = []
+                    if missing:
+                        note.append(f"{len(missing)} indicateurs ajoutés")
+                    if invented:
+                        note.append(f"{len(invented)} ID inventés retirés")
+                    if na_nm_leaked:
+                        note.append(f"{len(na_nm_leaked)} NA/NM retirés")
+                    response.notes = (response.notes + " " if response.notes else "") + "; ".join(note) + "."
     # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
     if not response.done and not response.options and not response.fields and "?" not in response.reply:
         forced = complete_json(
