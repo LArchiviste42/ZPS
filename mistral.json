@@ -1,5 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "kind": "app",
+  "name": "mistral-app",
   "modules": [
     {
       "type": "app",
