@@ -364,6 +364,23 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
+    # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
+    if not response.done and not response.options and not response.fields and "?" not in response.reply:
+        forced = complete_json(
+            CHAT_SYSTEM_PROMPT + "\nDERNIER RECOURS : toutes les infos sont là. GÉNÈRE maintenant le livrable complet : done=true + reportJson et/ou css non vide. Aucune question.",
+            json.dumps(payload, ensure_ascii=False),
+            model=MODEL,
+            retries=1,
+            image_b64=request.image_b64,
+        )
+        forced_response = _parse(forced)
+        if forced_response.done and (forced_response.report_json or forced_response.css):
+            response.reply = forced_response.reply or response.reply
+            response.done = True
+            response.report_json = forced_response.report_json or response.report_json
+            response.css = forced_response.css or response.css
+            response.excluded = forced_response.excluded
+            response.notes = forced_response.notes
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
         final = complete_json(
@@ -444,6 +461,23 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         # V1 du JSON produite : demander l'itération jusqu'à « JSON terminé » avant le CSS.
         response.options = ["Itérer sur le JSON", "JSON terminé"]
         response.reply += " — V1 du JSON prête. Itère dessus en langage naturel, ou clique « JSON terminé » pour passer au CSS."
+    # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
+    if not response.done and not response.options and not response.fields and "?" not in response.reply:
+        forced = complete_json(
+            CHAT_SYSTEM_PROMPT + "\nDERNIER RECOURS : toutes les infos sont là. GÉNÈRE maintenant le livrable complet : done=true + reportJson et/ou css non vide. Aucune question.",
+            json.dumps(payload, ensure_ascii=False),
+            model=MODEL,
+            retries=1,
+            image_b64=request.image_b64,
+        )
+        forced_response = _parse(forced)
+        if forced_response.done and (forced_response.report_json or forced_response.css):
+            response.reply = forced_response.reply or response.reply
+            response.done = True
+            response.report_json = forced_response.report_json or response.report_json
+            response.css = forced_response.css or response.css
+            response.excluded = forced_response.excluded
+            response.notes = forced_response.notes
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in request.messages:

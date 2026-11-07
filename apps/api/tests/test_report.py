@@ -313,7 +313,7 @@ def test_complete_json_falls_back_to_faster_model_on_504(client: TestClient, mon
             seen_models.append(str(kwargs["model"]))
             if kwargs["model"] == "mistral-large-4":
                 raise RuntimeError("504 gateway timeout")
-            return _completion({"reply": "ok", "done": False})
+            return _completion({"reply": "ok ?", "done": False})
 
     monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
     res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
@@ -574,3 +574,34 @@ def test_fetch_site_brand_extracts_colors_and_fonts() -> None:
     assert "#e2001a" in out["colors"] and "#222222" in out["colors"]
     assert any("Montserrat" in f for f in out["fonts"])
     monkeypatch.undo()
+
+
+def test_report_chat_last_resort_ml4_generation_on_persistent_announcements(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    outputs = iter(
+        [
+            {"reply": "Construction du rapport JSON en cours...", "done": False},
+            {"reply": "Toujours en cours...", "done": False},
+            {"reply": "Toujours en cours...", "done": False},
+            {"reply": "Voici le JSON final.", "done": True, "reportJson": {"blocks": [{"type": "header", "data": {"text": "E1", "level": 2}}]}},
+        ]
+    )
+    seen_models: list[str] = []
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            seen_models.append(str(kwargs["model"]))
+            return _completion(next(outputs))
+
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "structure_only", "messages": [{"role": "user", "content": "voici le CSV"}], "csv": "THEME;INDICATOR;TYPE;PARENT ID\nEnv;GES;Nombre;1"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] is True
+    assert body["reportJson"]["blocks"][0]["data"]["text"] == "E1"
+    assert "mistral-large-4" in seen_models  # dernier recours bien passé sur ML4
