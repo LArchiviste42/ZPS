@@ -157,7 +157,7 @@ def fetch_site_brand(url: str) -> dict:
             color_counts = Counter(c.lower() for c in colors)
             top_colors = [c for c, _ in color_counts.most_common(16)]
             # Clean font list: strip !important, drop generic/icon fonts, keep distinctive families first.
-            font_counts = Counter(f.strip().rstrip("!important").strip() for f in fonts)
+            font_counts = Counter(f.strip().removesuffix("!important").strip() for f in fonts)
             generic = ("inherit", "icons", "helvetica", "arial", "sans-serif", "serif", "monospace")
             clean_fonts = [
                 f
