@@ -10,7 +10,7 @@ from alembic import op
 
 revision = "4b7e8c9d0a1f"
 down_revision = "9f3c1a2b4d5e"
-branch_labels = ("database/postgres",)
+branch_labels = None  # continues the database/postgres branch started by 9f3c1a2b4d5e
 depends_on = None
 
 

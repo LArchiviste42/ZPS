@@ -17,8 +17,17 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.pool import NullPool
 
 _engine: AsyncEngine | None = None
+_engine_loop: asyncio.AbstractEventLoop | None = None
 _session_maker: async_sessionmaker[AsyncSession] | None = None
 _readiness_engine: AsyncEngine | None = None
+_readiness_engine_loop: asyncio.AbstractEventLoop | None = None
+
+
+def _current_loop() -> asyncio.AbstractEventLoop | None:
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        return None
 
 # Keep below the API readiness probe's timeout (3s), or the probe gives up first and a reachable
 # database reads as unready.
@@ -26,8 +35,12 @@ _PING_TIMEOUT_S = 2.0
 
 
 def get_engine() -> AsyncEngine:
-    global _engine
-    if _engine is None:
+    # An AsyncEngine is bound to the event loop it first ran on; reusing it on another loop
+    # (e.g. two asyncio.run() calls in one CLI process) raises "attached to a different loop".
+    # Recreate the engine when the running loop changed (short-lived CLI processes just drop it).
+    global _engine, _engine_loop
+    loop = _current_loop()
+    if _engine is None or _engine_loop is not loop:
         _engine = create_async_engine(
             env.async_database_url,
             echo=env.db_echo,
@@ -35,6 +48,9 @@ def get_engine() -> AsyncEngine:
             max_overflow=env.db_max_overflow,
             pool_pre_ping=env.db_pool_pre_ping,
         )
+        _engine_loop = loop
+        global _session_maker
+        _session_maker = None
     return _engine
 
 
@@ -52,13 +68,15 @@ def get_session_maker() -> async_sessionmaker[AsyncSession]:
 
 def _get_readiness_engine() -> AsyncEngine:
     """``NullPool`` so this engine connects per call and can never queue behind the app pool."""
-    global _readiness_engine
-    if _readiness_engine is None:
+    global _readiness_engine, _readiness_engine_loop
+    loop = _current_loop()
+    if _readiness_engine is None or _readiness_engine_loop is not loop:
         _readiness_engine = create_async_engine(
             env.async_database_url,
             echo=env.db_echo,
             poolclass=NullPool,
         )
+        _readiness_engine_loop = loop
     return _readiness_engine
 
 
@@ -94,11 +112,13 @@ async def readiness_ping(timeout_s: float = _PING_TIMEOUT_S) -> bool:
 
 
 async def dispose_engine() -> None:
-    global _engine, _session_maker, _readiness_engine
+    global _engine, _engine_loop, _session_maker, _readiness_engine, _readiness_engine_loop
     if _engine is not None:
         await _engine.dispose()
         _engine = None
+        _engine_loop = None
         _session_maker = None
     if _readiness_engine is not None:
         await _readiness_engine.dispose()
         _readiness_engine = None
+        _readiness_engine_loop = None
