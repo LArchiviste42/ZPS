@@ -585,7 +585,7 @@ def test_report_chat_last_resort_ml4_generation_on_persistent_announcements(
             {"reply": "Construction du rapport JSON en cours...", "done": False},
             {"reply": "Toujours en cours...", "done": False},
             {"reply": "Toujours en cours...", "done": False},
-            {"reply": "Voici le JSON final.", "done": True, "reportJson": {"blocks": [{"type": "header", "data": {"text": "E1", "level": 2}}]}},
+            {"reply": "Voici le JSON final.", "done": True, "reportJson": {"blocks": [{"type": "header", "data": {"text": "E1", "level": 2}}, {"type": "table", "data": {"table": {"columns": [], "indicatorIds": ["1"]}}}]}},
         ]
     )
     seen_models: list[str] = []

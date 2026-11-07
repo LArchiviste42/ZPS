@@ -47,6 +47,8 @@ class ChatRequest(BaseModel):
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
 
+    model_config = {"populate_by_name": True}
+
 
 class FieldSpec(BaseModel):
     key: str
@@ -86,6 +88,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * mode CSS seul ("design_only") : demande le nom du client, puis l'URL de son site web (pour extraire sa charte graphique).
   * mode JSON seul ("structure_only") : demande (1) EN PREMIER le fichier CSV **ou XLSX** de la matrice réseau / architecture du network du client (colonnes Thématique, Sous-thématique, Catégorie, Indicateur, Type, ID Parent, flag NA/NM — l'ORGANIZATION ID y figure souvent, note-le), (2) ensuite l'ID client (organizationId, s'il n'est pas dans le fichier) et l'ID réseau (networkId — il change à chaque usage), (3) combien d'années / exercices historiques afficher dans les graphiques, (4) la répartition souhaitée entre graphiques et tableaux : 20% graphiques / 80% tableaux, 40/60, 60/40 ou 80/20, (5) si un sommaire (table_of_content) est souhaité (oui/non), (6) le type de graphiques préféré : courbes "line" ou barres "bar".
   * mode JSON & CSS ("structure_and_design") : d'abord TOUTES les questions JSON (fichier matrice d'abord, puis IDs, exercices, ratio, sommaire, ligne/barre), puis en phase 2 les questions CSS (nom, URL).
+- OBLIGATION ABSOLUE : TOUS les indicateurs de "csvIndicators" doivent apparaître dans le JSON (headers + blocs chart/table/text_indicators) — AUCUN omis, même les narratifs. Compte-les et vérifie avant de répondre done=true.
 - Dès que tu as tout ce qu'il faut :
   * en mode combiné (JSON & CSS) : JAMAIS les deux en même temps — d'abord le JSON (phase 1), puis le CSS en phase 2 après confirmation de l'utilisateur ;
   * réponds avec "done": true en incluant reportJson et/ou css.
@@ -346,11 +349,33 @@ def _parse(data: dict) -> ChatResponse:
     )
 
 
+def _indicator_ids_in_report(report_json: Any) -> set:
+    """All indicator ids referenced by the generated Editor.js JSON (chart/table/text/kpi)."""
+    ids: set = set()
+    for b in (report_json or {}).get("blocks", []) if isinstance(report_json, dict) else []:
+        data = b.get("data", {}) if isinstance(b, dict) else {}
+        chart = data.get("chart") or {}
+        for ind in chart.get("indicators", []) or []:
+            if isinstance(ind, dict) and ind.get("indicatorId") is not None:
+                ids.add(str(ind["indicatorId"]))
+        table = data.get("table") or {}
+        for iid in table.get("indicatorIds", []) or []:
+            ids.add(str(iid))
+        for ind in (data.get("textIndicators") or {}).get("indicators", []) or []:
+            if isinstance(ind, dict) and ind.get("indicatorId") is not None:
+                ids.add(str(ind["indicatorId"]))
+        kpi = data.get("kpiIndicator") or {}
+        if kpi.get("indicatorId") is not None:
+            ids.add(str(kpi["indicatorId"]))
+    return ids
+
+
 @router.post(
     "",
     operation_id="report_chat",
     summary="Conversational report builder: asks for the needed data, then generates JSON/CSS",
 )
+
 def report_chat(request: ChatRequest) -> ChatResponse:
     request_deadline = time.monotonic() + 50  # the gateway times out around 60s
     indicators, csv_errors = ([], [])
@@ -374,9 +399,9 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "mode": request.mode,
         "siteBrand": site_brand,
         "csvOrganizationId": extract_organization_id(csv_text) if csv_text else None,
-        "csvIndicators": indicators[:300],
+        "csvIndicators": indicators[:2000],
         "csvIndicatorsTotal": len(indicators),
-        "csvIndicatorsTruncated": len(indicators) > 300,
+        "csvIndicatorsTruncated": len(indicators) > 2000,
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
         "currentReportJson": request.report_json,
@@ -396,6 +421,30 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
+    # Completeness guard: in JSON modes, EVERY csv indicator must appear in the generated JSON.
+    if response.done and response.report_json and request.mode != "design_only" and indicators:
+        expected = {str(i.get("parentId") or i.get("name")) for i in indicators if i.get("parentId") is not None or i.get("name")}
+        expected = {e for e in expected if e}
+        for _ in range(4):  # minimum de relances de complétude avant abandon
+            present = _indicator_ids_in_report(response.report_json)
+            missing = sorted(expected - present)
+            if not missing:
+                break
+            logger.warning("JSON incomplet: %d indicateurs manquants, régénération", len(missing))
+            corrected = complete_json(
+                CHAT_SYSTEM_PROMPT + "\nCORRECTION : le JSON généré omet des indicateurs. Ajoute-les TOUS (blocs chart/table/text_indicators) : " + ", ".join(missing[:200]) + (" …" if len(missing) > 200 else ""),
+                json.dumps(payload, ensure_ascii=False),
+                model=MODEL,
+                retries=1,
+                image_b64=request.image_b64,
+                deadline=request_deadline,
+            )
+            fixed = _parse(corrected)
+            if fixed.report_json:
+                candidate = _indicator_ids_in_report(fixed.report_json)
+                if len(candidate & expected) > len(present & expected):
+                    response.report_json = fixed.report_json
+                    response.notes = (response.notes + " " if response.notes else "") + f"{len(missing)} indicateurs ajoutés."
     # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
     if not response.done and not response.options and not response.fields and "?" not in response.reply:
         forced = complete_json(
@@ -495,6 +544,30 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
+    # Completeness guard: in JSON modes, EVERY csv indicator must appear in the generated JSON.
+    if response.done and response.report_json and request.mode != "design_only" and indicators:
+        expected = {str(i.get("parentId") or i.get("name")) for i in indicators if i.get("parentId") is not None or i.get("name")}
+        expected = {e for e in expected if e}
+        for _ in range(4):  # minimum de relances de complétude avant abandon
+            present = _indicator_ids_in_report(response.report_json)
+            missing = sorted(expected - present)
+            if not missing:
+                break
+            logger.warning("JSON incomplet: %d indicateurs manquants, régénération", len(missing))
+            corrected = complete_json(
+                CHAT_SYSTEM_PROMPT + "\nCORRECTION : le JSON généré omet des indicateurs. Ajoute-les TOUS (blocs chart/table/text_indicators) : " + ", ".join(missing[:200]) + (" …" if len(missing) > 200 else ""),
+                json.dumps(payload, ensure_ascii=False),
+                model=MODEL,
+                retries=1,
+                image_b64=request.image_b64,
+                deadline=request_deadline,
+            )
+            fixed = _parse(corrected)
+            if fixed.report_json:
+                candidate = _indicator_ids_in_report(fixed.report_json)
+                if len(candidate & expected) > len(present & expected):
+                    response.report_json = fixed.report_json
+                    response.notes = (response.notes + " " if response.notes else "") + f"{len(missing)} indicateurs ajoutés."
     # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
     if not response.done and not response.options and not response.fields and "?" not in response.reply:
         forced = complete_json(
