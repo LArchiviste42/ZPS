@@ -64,6 +64,9 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - NE DIS JAMAIS que tu vas consulter le site web toi-même : tu ne peux pas naviguer. Demande l'URL du site, puis produis le CSS directement : charte connue du client si elle est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande à l'utilisateur les codes hex / polices de la charte.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 - Ne demande JAMAIS de confirmation à l'utilisateur (« c'est bon ? », « voulez-vous que je génère ? », « puis-je commencer ? ») : dès que tu as toutes les informations requises, génère immédiatement (done=true avec le livrable). L'utilisateur peut toujours affiner ensuite en langage naturel.
+- MODE COMBINÉ (structure_and_design) EN DEUX TEMPS :
+  * phase 1 (currentReportJson absent) : rassemble les infos JSON (CSV matrice réseau, organizationId, networkId, exercices historiques, ratio graphiques/tableaux) et génère UNIQUEMENT reportJson (css = null), done=true. Dans "reply", dis : le JSON est prêt et téléchargeable — réponds « ok » pour passer au CSS.
+  * phase 2 (currentReportJson fourni, currentCss absent) : rassemble les infos CSS si manquantes (nom du client, URL du site), puis génère UNIQUEMENT le css (reportJson = currentReportJson inchangé), done=true.
 - RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant en conséquence et réponds done=true avec le livrable modifié. Ne recommence pas les questions.
 """
 
@@ -159,8 +162,14 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.excluded = final_response.excluded
         if final_response.notes:
             response.notes = final_response.notes
+    # Two-phase combined mode: phase 1 = JSON only, phase 2 (current JSON present) = CSS.
+    if request.mode == "structure_and_design":
+        if request.report_json is None:
+            response.css = None
+        else:
+            response.report_json = response.report_json or request.report_json
     # Guard: done=true but the deliverable for the mode is empty -> one corrective call.
-    needs_css = request.mode != "structure_only"
+    needs_css = request.mode == "design_only" or (request.mode == "structure_and_design" and request.report_json is not None)
     needs_json = request.mode != "design_only"
     if response.done and ((needs_css and not response.css) or (needs_json and not response.report_json)):
         corrected = complete_json(

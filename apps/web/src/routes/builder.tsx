@@ -283,7 +283,7 @@ function BuilderPage() {
           <div className="grid flex-1 gap-4 lg:grid-cols-2">
             <div className="flex flex-col gap-3">
               <div className="overflow-hidden rounded-2xl border border-white/20 bg-white">
-                <iframe title="Aperçu du rapport" className="h-[420px] w-full" srcDoc={buildPreviewSrcDoc(report)} />
+                <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report)} />
               </div>
               {report.css && <DownloadCssButton css={report.css} />}
               {report.reportJson != null && <DownloadJsonButton reportJson={report.reportJson} />}
@@ -508,6 +508,42 @@ function ChonkThinking({ mode }: { mode: Mode }) {
 
 /* ---------- Aperçu du rapport (données fictives) ---------- */
 
+// Rapport de démonstration inspiré du module Zei « Énergie » (ESRS E1) : sert d'aperçu riche
+// quand aucun JSON n'a encore été généré (mode CSS seul ou phase 1 du mode combiné).
+const DEMO_REPORT = {
+  time: 1762500000000,
+  version: "2.30.5",
+  blocks: [
+    { type: "header", data: { text: "Rapport de durabilité 2026 — Module Énergie (démonstration)", level: 1 } },
+    { type: "header", data: { text: "ESRS E1 — Changement climatique", level: 2 } },
+    { type: "text_indicators", data: { organizationId: 49, networkId: 727, locale: "fr", textIndicators: { indicators: [{ type: "LastValue", indicatorId: 48261 }] } } },
+    { type: "header", data: { text: "Non renouvelable", level: 2 } },
+    { type: "header", data: { text: "Électricité", level: 3 } },
+    { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48228 }, { type: "IndicatorValue", indicatorId: 48229 }] } } },
+    { type: "table", id: "demoT1", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48228", "48229", "48236", "48264"] } } },
+    { type: "header", data: { text: "Pétroles et dérivés énergétiques du pétrole", level: 3 } },
+    { type: "table", id: "demoT2", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48265", "48266", "48268", "48270", "48269", "48267"] } } },
+    { type: "header", data: { text: "Charbon", level: 3 } },
+    { type: "table", id: "demoT3", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48231"] } } },
+    { type: "header", data: { text: "Gaz fossile & Biogaz", level: 3 } },
+    { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48250 }] } } },
+    { type: "header", data: { text: "Nucléaire", level: 3 } },
+    { type: "table", id: "demoT4", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48253", "48237"] } } },
+    { type: "header", data: { text: "Sous-total non renouvelable", level: 3 } },
+    { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48242 }, { type: "IndicatorValue", indicatorId: 48241 }] } } },
+    { type: "header", data: { text: "Renouvelable", level: 2 } },
+    { type: "header", data: { text: "Énergie renouvelable autoproduite", level: 3 } },
+    { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48249 }] } } },
+    { type: "header", data: { text: "Réseaux de chaleur et de froid / Vapeur", level: 3 } },
+    { type: "table", id: "demoT5", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48244", "48245", "48246", "48243"] } } },
+    { type: "header", data: { text: "Total", level: 2 } },
+    { type: "header", data: { text: "Consommation totale d'énergie", level: 3 } },
+    { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48230 }, { type: "IndicatorValue", indicatorId: 48250 }, { type: "IndicatorValue", indicatorId: 48253 }] } } },
+    { type: "table", id: "demoT6", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48230", "48250", "48253", "48255", "48256"] } } },
+  ],
+};
+
+
 const DEFAULT_CSS = `:root{--primary:#262882;--secondary:#3c3c3b;--tertiary:#58b896;--fourth:rgba(88,184,150,0.18);}
 body{font-family:'Poppins',Arial,sans-serif;font-size:14px;color:var(--secondary);padding:24px;}
 h1{color:var(--primary);font-size:32px;font-weight:700;} h2{color:var(--primary);font-size:24px;font-weight:600;margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:3px solid var(--tertiary);} h3{color:var(--secondary);font-size:20px;font-weight:600;margin-top:14px;}
@@ -571,10 +607,7 @@ function renderTable(data: any): string {
 }
 
 function renderBlocks(reportJson: any): string {
-  const blocks: any[] = Array.isArray(reportJson?.blocks) ? reportJson.blocks : [];
-  if (blocks.length === 0) {
-    return `<h1>Rapport de durabilité ${new Date().getFullYear()}</h1><p>Données de démonstration — structure générée par le reporting builder.</p>`;
-  }
+  const blocks: any[] = Array.isArray(reportJson?.blocks) && reportJson.blocks.length > 0 ? reportJson.blocks : DEMO_REPORT.blocks;
   return blocks
     .map((b) => {
       if (b.type === "header") {
@@ -594,3 +627,4 @@ function buildPreviewSrcDoc(report: Report): string {
   const css = report.css ?? DEFAULT_CSS;
   return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${renderBlocks(report.reportJson)}</body></html>`;
 }
+
