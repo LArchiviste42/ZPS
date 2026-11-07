@@ -223,12 +223,17 @@ function BuilderPage() {
                   : "self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white"
               }
             >
+              {turn.role === "assistant" && (
+                <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
+                  Zai (Le Chonk)
+                </span>
+              )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
             </div>
           ))}
           {pending && (
             <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white/80">
-              <span className="animate-pulse">zei réfléchit…</span>
+              <span className="animate-pulse">Zai (Le Chonk) réfléchit…</span>
             </div>
           )}
           <div ref={bottomRef} />
