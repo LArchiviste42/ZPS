@@ -168,12 +168,6 @@ function BuilderPage() {
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         await refreshHistory();
-        if (data.css) {
-          setTurns((prev) => [
-            ...prev,
-            { role: "assistant", content: "Veux-tu améliorer le design ? Décris-moi les changements en langage naturel (ex. : titres plus gros, autre couleur principale…)." },
-          ]);
-        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
