@@ -43,7 +43,7 @@ def test_chat_returns_the_reply_and_calls_mistral_small(
     assert res.status_code == 200
     assert res.json() == {"reply": "Bonjour !"}
     assert calls == [
-        {"model": "mistral-small-latest", "messages": [{"role": "user", "content": "Salut"}]}
+        {"model": "mistral-large-4", "messages": [{"role": "user", "content": "Salut"}]}
     ]
 
 

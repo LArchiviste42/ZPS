@@ -5,7 +5,7 @@ from mistralai.client.models import ChatCompletionResponse
 from pydantic import BaseModel, Field
 from utils.mistral import caller_mistral_client
 
-MODEL = "mistral-small-latest"
+MODEL = "mistral-large-4"
 
 router = APIRouter()
 

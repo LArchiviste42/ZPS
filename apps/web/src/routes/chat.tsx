@@ -63,7 +63,7 @@ function ChatPage() {
         <ZeiMark className="h-8 w-8" />
         <div className="leading-tight">
           <p className="text-lg font-extrabold lowercase tracking-tight text-white">zei · chat</p>
-          <p className="text-xs text-white/70">mistral-small-latest, via /api/chat</p>
+          <p className="text-xs text-white/70">mistral-large-4, via /api/chat</p>
         </div>
       </header>
 

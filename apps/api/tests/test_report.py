@@ -81,7 +81,7 @@ def test_report_structure_and_design_returns_json_and_css(
     assert body["excluded"] == ["Note NA"]
     messages = calls[0]["messages"]
     assert messages[0]["role"] == "system" and "Editor.js" in messages[0]["content"]
-    assert calls[0]["model"] == "mistral-small-latest"
+    assert calls[0]["model"] == "mistral-large-4"
     assert calls[0]["response_format"] == {"type": "json_object"}
 
 
