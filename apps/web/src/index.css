@@ -110,6 +110,20 @@
   }
 }
 
+@keyframes chonk-juggle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+.chonk-juggle {
+  animation: chonk-juggle 0.9s ease-in-out infinite;
+}
+
 .chonk-bob {
   animation: chonk-bob 1.4s ease-in-out infinite;
 }
@@ -135,7 +149,8 @@
   .zei-progress-bar > span,
   .chonk-bob,
   .chonk-tail,
-  .chonk-eyes {
+  .chonk-eyes,
+  .chonk-juggle {
     animation: none;
   }
 }

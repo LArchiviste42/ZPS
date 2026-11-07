@@ -375,7 +375,6 @@ function BuilderPage() {
             <ChatColumn
               turns={turns}
               pending={pending}
-              mode={mode}
               error={error}
               input={input}
               setInput={setInput}
@@ -416,7 +415,6 @@ function BuilderPage() {
         <ChatColumn
           turns={turns}
           pending={pending}
-          mode={mode}
           error={error}
           input={input}
           setInput={setInput}
@@ -436,7 +434,6 @@ function BuilderPage() {
 function ChatColumn({
   turns,
   pending,
-  mode,
   error,
   input,
   setInput,
@@ -448,7 +445,6 @@ function ChatColumn({
 }: {
   turns: ChatTurn[];
   pending: boolean;
-  mode: Mode;
   error: string;
   input: string;
   setInput: (v: string) => void;
@@ -497,7 +493,7 @@ function ChatColumn({
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
                 Zai (Le Chonk) réfléchit…
               </span>
-              <ChonkThinking mode={mode} />
+              <ChonkThinking />
               <div className="zei-progress-bar mt-2 w-48">
                 <span />
               </div>
@@ -599,54 +595,77 @@ const CAT_MAP = [
 ];
 const CAT_COLORS: Record<string, string> = { O: "#FF8205", Y: "#FFD800", R: "#E10500", W: "#FFFFFF", K: "#262882" };
 
-function ChonkThinking({ mode }: { mode: Mode }) {
-  const coding = mode !== "design_only"; // JSON ou JSON & CSS
-  const painting = mode !== "structure_only"; // CSS ou JSON & CSS
+function ChonkThinking() {
+  // Gros chat pixel art orange (style Mistral) qui jongle : 2 balles Zei (menthe + logo), un cerveau, un pinceau vert Zei.
+  const juggle = (delay: number, children: ReactNode) => (
+    <g className="chonk-juggle" style={{ animationDelay: `${delay}s` }}>
+      {children}
+    </g>
+  );
   return (
     <svg
-      viewBox="0 0 100 60"
-      className="chonk-bob h-20 w-auto"
+      viewBox="0 0 120 76"
+      className="chonk-bob h-24 w-auto"
       shapeRendering="crispEdges"
       role="img"
-      aria-label="Zai (Le Chonk), chaton pixel art qui travaille"
+      aria-label="Zai (Le Chonk), chaton pixel art orange qui jongle"
     >
-      {/* tail */}
+      {/* objets jonglés */}
+      {juggle(0, (
+        <g>
+          {/* balle menthe Zei avec la feuille blanche */}
+          <rect x="30" y="2" width="12" height="4" fill="#58B896" />
+          <rect x="26" y="6" width="20" height="8" fill="#58B896" />
+          <rect x="30" y="14" width="12" height="4" fill="#58B896" />
+          <rect x="33" y="7" width="6" height="6" fill="#FFFFFF" />
+        </g>
+      ))}
+      {juggle(-0.45, (
+        <g>
+          {/* balle indigo avec le "z" Zei */}
+          <rect x="58" y="0" width="12" height="4" fill="#4347E8" />
+          <rect x="54" y="4" width="20" height="8" fill="#4347E8" />
+          <rect x="58" y="12" width="12" height="4" fill="#4347E8" />
+          <text x="64" y="12" fontSize="9" fontFamily="monospace" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">z</text>
+        </g>
+      ))}
+      {juggle(-0.22, (
+        <g>
+          {/* cerveau */}
+          <rect x="86" y="4" width="16" height="4" fill="#F2A7C3" />
+          <rect x="82" y="8" width="24" height="8" fill="#F2A7C3" />
+          <rect x="86" y="16" width="16" height="4" fill="#F2A7C3" />
+          <rect x="88" y="8" width="4" height="8" fill="#E58BB0" />
+          <rect x="96" y="8" width="4" height="8" fill="#E58BB0" />
+        </g>
+      ))}
+      {juggle(-0.67, (
+        <g>
+          {/* pinceau vert Zei */}
+          <rect x="50" y="20" width="4" height="10" fill="#FFFFFF" />
+          <rect x="48" y="30" width="8" height="6" fill="#58B896" />
+        </g>
+      ))}
+      {/* queue */}
       <g className="chonk-tail">
-        <rect x="0" y="36" width="4" height="4" fill="#FF8205" />
-        <rect x="0" y="32" width="4" height="4" fill="#FF8205" />
-        <rect x="4" y="28" width="4" height="4" fill="#FFD800" />
+        <rect x="2" y="52" width="4" height="4" fill="#FF8205" />
+        <rect x="2" y="48" width="4" height="4" fill="#FF8205" />
+        <rect x="6" y="44" width="4" height="4" fill="#FFD800" />
       </g>
-      {/* body */}
+      {/* corps du chaton pixel art (dégradé Mistral) */}
       {CAT_MAP.map((row, r) =>
         [...row].map((ch, c) => {
           const fill = CAT_COLORS[ch];
           if (!fill || (r === 4 && (ch === "W" || ch === "K"))) return null;
-          return <rect key={`${r}-${c}`} x={8 + c * 4} y={r * 4} width="4" height="4" fill={fill} />;
+          return <rect key={`${r}-${c}`} x={16 + c * 4} y={24 + r * 4} width="4" height="4" fill={fill} />;
         }),
       )}
-      {/* eyes (blink) */}
+      {/* yeux qui clignent */}
       <g className="chonk-eyes">
         {[3, 4, 10, 11].map((c) => (
-          <rect key={c} x={8 + c * 4} y={16} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
+          <rect key={c} x={16 + c * 4} y={40} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
         ))}
       </g>
-      {/* laptop with code (JSON) */}
-      {coding && (
-        <g>
-          <rect x="72" y="24" width="26" height="20" fill="#262882" />
-          <rect x="74" y="26" width="22" height="16" fill="#1B1E5E" />
-          <text x="85" y="38" fontSize="9" fontFamily="monospace" fill="#58B896" textAnchor="middle">&lt;/&gt;</text>
-          <rect x="68" y="44" width="34" height="4" fill="#3C3C3B" />
-        </g>
-      )}
-      {/* Zei-green brush (CSS) */}
-      {painting && (
-        <g>
-          <rect x="80" y="12" width="4" height="20" fill="#FFFFFF" />
-          <rect x="76" y="32" width="12" height="8" fill="#58B896" />
-          <rect x="78" y="40" width="8" height="4" fill="#4AA886" />
-        </g>
-      )}
     </svg>
   );
 }
