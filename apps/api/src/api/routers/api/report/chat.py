@@ -101,12 +101,12 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 
 _HEADER_ALIASES = {
     "theme": "theme", "thématique": "theme", "thematique": "theme",
-    "subtheme": "sub_theme", "sous-thématique": "sub_theme", "sous-thematique": "sub_theme", "sous thématique": "sub_theme",
-    "categorie": "category", "catégorie": "category",
-    "name": "name", "nom": "name", "indicateur": "name", "libellé": "name", "libelle": "name",
+    "subtheme": "sub_theme", "sub-theme": "sub_theme", "sous-thématique": "sub_theme", "sous-thematique": "sub_theme", "sous thématique": "sub_theme",
+    "category": "category", "categorie": "category", "catégorie": "category",
+    "name": "name", "nom": "name", "indicator": "name", "indicateur": "name", "libellé": "name", "libelle": "name",
     "type": "type",
-    "parentid": "parent_id", "id parent": "parent_id", "idparent": "parent_id",
-    "flag": "flag", "na/nm": "flag", "nanm": "flag",
+    "parentid": "parent_id", "parent id": "parent_id", "id parent": "parent_id", "idparent": "parent_id",
+    "flag": "flag", "na/nm": "flag", "nanm": "flag", "flag na/nm": "flag",
 }
 
 
@@ -147,39 +147,82 @@ def fetch_site_brand(url: str) -> dict:
 
 
 def xlsx_to_csv_text(data: bytes) -> str:
-    """Minimal XLSX reader (stdlib only): first sheet, shared strings resolved, cells joined by ';'."""
+    """Minimal XLSX reader (stdlib only). Parses every sheet (inline strings AND shared strings),
+    then returns the sheet whose header row best matches the network-matrix columns."""
     ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    rns = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+    pkg_rns = "{http://schemas.openxmlformats.org/package/2006/relationships}"
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         shared: list[str] = []
         if "xl/sharedStrings.xml" in z.namelist():
             root = ET.fromstring(z.read("xl/sharedStrings.xml"))
             for si in root.findall(f"{ns}si"):
                 shared.append("".join(t.text or "" for t in si.iter(f"{ns}t")))
-        sheet_name = next((n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml")), None)
-        if sheet_name is None:
-            raise ValueError("Aucune feuille trouvée dans le XLSX")
-        root = ET.fromstring(z.read(sheet_name))
-    lines: list[str] = []
-    for row in root.iter(f"{ns}row"):
-        cells: list[str] = []
-        for c in row.findall(f"{ns}c"):
+        # sheet order from workbook.xml + rels
+        sheet_files: list[str] = []
+        try:
+            wb = ET.fromstring(z.read("xl/workbook.xml"))
+            rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
+            rel_map = {r.get("Id"): r.get("Target") for r in rels.findall(f"{pkg_rns}Relationship")}
+            for sh in wb.iter(f"{ns}sheet"):
+                target = rel_map.get(sh.get(f"{rns}id"), "")
+                if target:
+                    sheet_files.append("xl/" + target.lstrip("/") if not target.startswith("xl/") else target)
+        except Exception:  # noqa: BLE001
+            pass
+        if not sheet_files:
+            sheet_files = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
+
+        def cell_text(c: ET.Element) -> str:
+            t = c.get("t")
+            if t == "inlineStr":
+                return "".join(x.text or "" for x in c.iter(f"{ns}t"))
             v = c.find(f"{ns}v")
-            text = v.text if v is not None else ""
-            if c.get("t") == "s" and text is not None:
-                text = shared[int(text)] if int(text) < len(shared) else text
-            cells.append(text or "")
-        lines.append(";".join(cells))
-    return "\n".join(lines)
+            if v is None or v.text is None:
+                return ""
+            if t == "s":
+                idx = int(v.text)
+                return shared[idx] if idx < len(shared) else v.text
+            return v.text
+
+        best_text, best_score = "", -1
+        for sheet_file in sheet_files:
+            root = ET.fromstring(z.read(sheet_file))
+            lines: list[str] = []
+            for row in root.iter(f"{ns}row"):
+                cells = [cell_text(c) for c in row.findall(f"{ns}c")]
+                lines.append(";".join(cells))
+            if not lines:
+                continue
+            score = sum(1 for h in lines[0].split(";") if h.strip().lower() in _HEADER_ALIASES)
+            if score > best_score:
+                best_score, best_text = score, "\n".join(lines)
+        return best_text
+
+
+def extract_organization_id(csv_text: str) -> int | None:
+    """The network matrix often carries ORGANIZATION ID in its first column."""
+    try:
+        first = next(csv.reader(io.StringIO(csv_text), delimiter=";"))
+    except Exception:  # noqa: BLE001
+        return None
+    for i, h in enumerate(first):
+        if h.strip().lower() in {"organization id", "organisation id", "organization_id", "id organisation", "id orga"}:
+            for row in csv.reader(io.StringIO(csv_text), delimiter=";"):
+                pass
+            rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
+            for row in rows[1:]:
+                if len(row) > i and row[i].strip().isdigit():
+                    return int(row[i])
+    return None
 
 
 def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
     """Parse a network-matrix CSV into indicator dicts; returns (indicators, errors)."""
-    sample = text[:4096]
-    try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=";,\t|")
-    except csv.Error:
-        dialect = csv.excel
-    reader = csv.DictReader(io.StringIO(text), dialect=dialect)
+    # Detect the delimiter from the header line (Sniffer fails on cells containing commas).
+    header_line = text.splitlines()[0] if text.splitlines() else ""
+    delimiter = max(";\t|,", key=lambda d: header_line.count(d))
+    reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
     if not reader.fieldnames:
         return [], ["CSV sans ligne d'en-tête"]
     mapping = {_HEADER_ALIASES.get((f or "").strip().lower(), (f or "").strip().lower()): f for f in reader.fieldnames}
@@ -258,6 +301,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     payload = {
         "mode": request.mode,
         "siteBrand": site_brand,
+        "csvOrganizationId": extract_organization_id(csv_text) if csv_text else None,
         "csvIndicators": indicators,
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],

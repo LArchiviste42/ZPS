@@ -1,3 +1,4 @@
+import io
 import json
 from types import SimpleNamespace
 
@@ -427,3 +428,28 @@ def test_report_chat_passes_screenshot_image_to_model(client: TestClient, monkey
     content = captured[0]["messages"][1]["content"]
     assert isinstance(content, list)
     assert any(part.get("type") == "image_url" and "aGVsbG8=" in part["image_url"]["url"] for part in content)
+
+
+def test_xlsx_inline_strings_and_english_headers_are_parsed() -> None:
+    import zipfile
+
+    from api.routers.api.report.chat import extract_organization_id, parse_csv_indicators, xlsx_to_csv_text
+
+    def cell(ref: str, text: str) -> str:
+        return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
+
+    header = "".join(cell(f"{chr(65+i)}1", h) for i, h in enumerate(["ORGANIZATION ID", "THEME", "SUBTHEME", "TYPE", "INDICATOR", "PARENT ID"]))
+    row2 = "".join(cell(f"{chr(65+i)}2", v) for i, v in enumerate(["49", "Environnement", "GES", "NUMBER", "Émissions GES", "412225"]))
+    sheet = f'<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1">{header}</row><row r="2">{row2}</row></sheetData></worksheet>'
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("xl/workbook.xml", '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="DATA" sheetId="1" r:id="rIdSheet1"/></sheets></workbook>')
+        z.writestr("xl/_rels/workbook.xml.rels", '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdSheet1" Target="worksheets/sheet1.xml" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"/></Relationships>')
+        z.writestr("xl/worksheets/sheet1.xml", sheet)
+    text = xlsx_to_csv_text(buf.getvalue())
+    assert "THEME" in text.splitlines()[0]
+    indicators, errors = parse_csv_indicators(text)
+    assert errors == []
+    assert indicators[0]["name"] == "Émissions GES"
+    assert indicators[0]["parentId"] == 412225
+    assert extract_organization_id(text) == 49
