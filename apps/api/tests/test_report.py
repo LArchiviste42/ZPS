@@ -495,7 +495,6 @@ def test_blocked_site_forces_awaiting_file_button(client: TestClient, monkeypatc
 
 def test_bare_403_without_bot_markers_is_error_not_blocked() -> None:
     import httpx
-
     from api.routers.api.report.chat import fetch_site_brand
 
     def fake_get(url: str) -> httpx.Response:
@@ -511,7 +510,6 @@ def test_bare_403_without_bot_markers_is_error_not_blocked() -> None:
 
 def test_real_bot_wall_is_blocked() -> None:
     import httpx
-
     from api.routers.api.report.chat import fetch_site_brand
 
     def fake_get(url: str) -> httpx.Response:
