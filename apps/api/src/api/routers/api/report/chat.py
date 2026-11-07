@@ -125,7 +125,8 @@ def fetch_site_brand(url: str) -> dict:
                     css = client.get(css_url).text[:100_000]
                     colors += re.findall(r"#[0-9a-fA-F]{6}\b", css)
                     fonts += re.findall(r"font-family:\s*([^;}]+)", css)
-                except Exception:  # noqa: BLE001  one stylesheet failing must not sink the rest
+                except Exception as css_err:  # noqa: BLE001  one stylesheet failing must not sink the rest
+                    logger.warning("stylesheet fetch failed for %s: %s", css_url, css_err)
                     continue
             title = re.search(r"<title>([^<]+)</title>", html)
             return {
