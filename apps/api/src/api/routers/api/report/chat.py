@@ -359,6 +359,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             json.dumps(payload, ensure_ascii=False),
             model=CHAT_MODEL,
             retries=1,
+            image_b64=request.image_b64,
         )
         fixed = _parse(corrected)
         if needs_css and not response.css:
@@ -371,7 +372,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     # Stuck guard: not done, no question, no options/fields, or an announcement ("je vais...") ->
     # the model announced instead of acting. Up to 2 corrective rounds until it delivers or asks.
     for _ in range(2):
-        announced = "je vais" in response.reply.lower()
+        announced = "je vais" in response.reply.lower() or "en cours" in response.reply.lower()
         if response.done or response.options or response.fields or ("?" in response.reply and not announced):
             break
         corrected = complete_json(
@@ -380,6 +381,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             model=CHAT_MODEL,
             retries=1,
             fallback=False,
+            image_b64=request.image_b64,
         )
         fixed = _parse(corrected)
         response.reply = fixed.reply or response.reply

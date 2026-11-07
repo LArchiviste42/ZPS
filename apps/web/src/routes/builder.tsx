@@ -248,6 +248,7 @@ function BuilderPage() {
   };
 
   const status = (() => {
+    if (imgB64) return "analyse de la capture d'écran du site (couleurs, polices, style)…";
     if (report?.css || report?.reportJson) return "mise à jour du livrable selon ta demande…";
     if (mode === "design_only") return "lecture du site du client et récupération de la charte graphique…";
     if (!report?.reportJson) return "analyse de la matrice réseau et rédaction du JSON…";
