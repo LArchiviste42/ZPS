@@ -705,11 +705,11 @@ function ChatColumn({
             </div>
           ))}
           {pending && (
-            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-6 py-5">
+            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-3">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
                 Zai réfléchit…
               </span>
-              <div className="h-48 w-64">
+              <div className="h-28 w-40">
                 <ChonkThinking />
               </div>
               <div className="zei-progress-bar mt-3 w-96 max-w-full">
@@ -906,7 +906,7 @@ function ChonkThinking() {
       <img
         src="/logo-zei-icon.png"
         alt="Zei"
-        className="chonk-bounce h-16 w-auto"
+        className="chonk-bounce h-12 w-auto"
         role="img"
         aria-label="Logo Zei qui rebondit"
       />
