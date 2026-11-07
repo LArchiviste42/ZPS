@@ -1,12 +1,15 @@
 import csv
 import io
 import json
+import logging
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from . import _store
 from .route import MODEL, SYSTEM_PROMPT, Mode, complete_json
+
+logger = logging.getLogger(__name__)
 
 # Fast model for the conversational Q&A turns; ML4 (MODEL) is reserved for the final
 # generation, which is the heavy turn. ML4's reasoning makes even a trivial question take
@@ -179,12 +182,16 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             if m.role == "user" and m.content:
                 client_name = m.content[:80]
                 break
-        entry = _store.save_entry(
-            mode=request.mode,
-            client_name=client_name,
-            summary=response.reply[:200] or "livrable généré",
-            report_json=response.report_json,
-            css=response.css,
-        )
-        response.history_id = entry["id"]
+        try:
+            entry = _store.save_entry(
+                mode=request.mode,
+                client_name=client_name,
+                summary=response.reply[:200] or "livrable généré",
+                report_json=response.report_json,
+                css=response.css,
+            )
+            response.history_id = entry["id"]
+        except OSError:
+            # History is best-effort: never fail the request (and lose the deliverable) over it.
+            logger.warning("history save failed", exc_info=True)
     return response

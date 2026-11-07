@@ -328,3 +328,27 @@ def test_complete_json_model_fallback_on_generation(monkeypatch: pytest.MonkeyPa
     data = complete_json("system", "payload")
     assert data == {"reply": "fallback ok"}
     assert seen[0] == "mistral-large-4" and seen[-1] == "mistral-medium-latest"
+
+
+def test_report_chat_survives_history_save_failure(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    monkeypatch.setattr(
+        report_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(
+            chat=SimpleNamespace(
+                complete=lambda **kwargs: _completion({"reply": "voici", "done": True, "css": "body{}", "reportJson": None})
+            )
+        ),
+    )
+
+    def boom(**kwargs: object) -> None:
+        raise PermissionError(13, "Permission denied", "data")
+
+    monkeypatch.setattr(chat_module._store, "save_entry", boom)
+    res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
+    assert res.status_code == 200
+    assert res.json()["css"] == "body{}"
+    assert res.json()["historyId"] is None

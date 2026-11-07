@@ -1,11 +1,13 @@
 """File-backed history of generated reports (id, date, mode, client, deliverables).
 
 Kept in a plain JSON file so the app needs no database module; the path comes from
-REPORT_HISTORY_PATH (default ``data/history.json`` under the working directory).
+REPORT_HISTORY_PATH (default: a file in the system temp dir, since the deployed container's
+working directory is read-only).
 """
 
 import json
 import os
+import tempfile
 import threading
 import uuid
 from datetime import UTC, datetime
@@ -16,7 +18,8 @@ _lock = threading.Lock()
 
 
 def _path() -> Path:
-    return Path(os.environ.get("REPORT_HISTORY_PATH") or "data/history.json")
+    # Default to the temp dir: the deployed container's working directory is not writable.
+    return Path(os.environ.get("REPORT_HISTORY_PATH") or Path(tempfile.gettempdir()) / "zps-report-history.json")
 
 
 def list_entries() -> list[dict[str, Any]]:
