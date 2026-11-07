@@ -463,7 +463,6 @@ function BuilderPage() {
               input={input}
               setInput={setInput}
               csvName={csvName}
-          imgName={imgName}
               imgName={imgName}
               onFile={onFile}
               onSend={send}
