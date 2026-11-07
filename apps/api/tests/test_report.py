@@ -476,3 +476,18 @@ def test_report_routes_require_gateway_token(client: TestClient) -> None:
     assert res.status_code == 401
     res2 = client.get("/api/report/history")
     assert res2.status_code == 401
+
+
+def test_blocked_site_forces_awaiting_file_button(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **k: _completion({"reply": "ok", "done": False}))))
+    monkeypatch.setattr(chat_module, "fetch_site_brand", lambda url: {"url": url, "blocked": True, "status": 403})
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "design_only", "messages": [{"role": "user", "content": "Decathlon https://www.decathlon.fr"}]},
+    )
+    body = res.json()
+    assert body["awaitingFile"] is True
+    assert "capture" in body["reply"].lower()

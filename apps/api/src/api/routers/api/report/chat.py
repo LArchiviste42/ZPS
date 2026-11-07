@@ -89,6 +89,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - ORDRE DES DEMANDES en mode JSON : d'abord le FICHIER matrice réseau (CSV ou XLSX, champ "type": "file"), PUIS les questions (organizationId + networkId toujours des NOMBRES "type": "number", puis exercices, ratio, sommaire, ligne/barre) (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné (JSON & CSS) : d'abord TOUTES les questions JSON (CSV, IDs, exercices, ratio, sommaire, ligne/barre) et on génère le JSON en phase 1 ; PUIS les questions CSS (nom du client, URL du site) et le CSS en phase 2 — jamais l'inverse.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
+- Ne mentionne JAMAIS la protection contre les bots si "siteBrand" est absent ou si "siteBrand.blocked" n'est pas true.
 - Si "siteBrand.blocked" == true (site protégé contre les bots) : dis à l'utilisateur que le site est protégé par les bots et demande-lui d'envoyer une CAPTURE D'ÉCRAN de son site dans le chat ; ne génère pas le CSS sans.
 - Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
 - Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth et SES polices pour les font-family — ne devine aucune autre couleur.
@@ -312,6 +313,11 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     }
     data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64)
     response = _parse(data)
+    if site_brand and site_brand.get("blocked"):
+        # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
+        response.awaiting_file = True
+        if "capture" not in response.reply.lower():
+            response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
         final = complete_json(
@@ -374,6 +380,11 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.excluded = fixed.excluded or response.excluded
         if not response.notes and fixed.notes:
             response.notes = fixed.notes
+    if site_brand and site_brand.get("blocked"):
+        # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
+        response.awaiting_file = True
+        if "capture" not in response.reply.lower():
+            response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):
