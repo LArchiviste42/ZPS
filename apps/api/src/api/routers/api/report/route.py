@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
-from utils.mistral import caller_mistral_client, mistral_client
+from utils.mistral import caller_mistral_client, mistral_client, mistral_credential_configured
 
 MODEL = "mistral-large-4"
 
@@ -33,7 +33,11 @@ def complete_json(
     models = (model, *FALLBACK_MODELS) if fallback else (model,)
     # Caller token first (per-request credential from the gateway); the app's own credential is
     # the last resort when the gateway proxy rejects the caller token (401 "Invalid or expired token").
-    client_factories = [caller_mistral_client, mistral_client]
+    # Caller token first (gateway); the app's own key only when one is actually configured —
+    # an empty key would send an illegal "Bearer " header.
+    client_factories = [caller_mistral_client]
+    if mistral_credential_configured():
+        client_factories.append(mistral_client)
     for client_factory in client_factories:
         try:
             client = client_factory()

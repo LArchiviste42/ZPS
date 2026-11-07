@@ -1,10 +1,16 @@
-"""The reporting builder: ``route.py`` is ``/report``, so the endpoint is ``/api/report``.
+"""The reporting builder: ``/report`` endpoints. These routes act for the caller, so they
+require the gateway token (a request without one gets a clean 401 instead of a broken
+``Bearer `` header on the Mistral API call)."""
 
-The access rule is declared here, cascading to every module in this package. Empty is the
-declaration, not an omission: the gateway still authenticates each request and installs the
-caller's credential, which the route spends via ``caller_mistral_client``.
-"""
+from fastapi import HTTPException, params
+from utils.mistral import MistralNotConfiguredError, caller_credentials
 
-from fastapi import params
 
-dependencies: tuple[params.Depends, ...] = ()
+def _require_caller() -> None:
+    try:
+        caller_credentials()
+    except MistralNotConfiguredError:
+        raise HTTPException(status_code=401, detail="Authentification requise : aucun token gateway sur la requête.")
+
+
+dependencies: tuple[params.Depends, ...] = (params.Depends(_require_caller),)

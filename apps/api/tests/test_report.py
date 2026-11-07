@@ -48,6 +48,15 @@ def _completion(payload: dict) -> SimpleNamespace:
     )
 
 
+@pytest.fixture(autouse=True)
+def fake_caller_token():
+    from utils.mistral import CallerCredentials, install_caller_credentials
+
+    install_caller_credentials(lambda: CallerCredentials(server_url="https://gateway.test/v1/proxy", token="tok-test"))
+    yield
+    install_caller_credentials(None)
+
+
 @pytest.fixture
 def client() -> TestClient:
     from conftest import build_app
@@ -457,3 +466,13 @@ def test_xlsx_inline_strings_and_english_headers_are_parsed() -> None:
     assert indicators[0]["name"] == "Émissions GES"
     assert indicators[0]["parentId"] == 412225
     assert extract_organization_id(text) == 49
+
+
+def test_report_routes_require_gateway_token(client: TestClient) -> None:
+    from utils.mistral import install_caller_credentials
+
+    install_caller_credentials(None)  # no caller token on the request
+    res = client.post("/api/report/chat", json={"mode": "design_only", "messages": []})
+    assert res.status_code == 401
+    res2 = client.get("/api/report/history")
+    assert res2.status_code == 401
