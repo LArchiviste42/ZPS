@@ -1,11 +1,9 @@
 import json
 
 from fastapi import APIRouter
-from mistralai.client.models import ChatCompletionResponse
 from pydantic import BaseModel, Field
-from utils.mistral import caller_mistral_client
 
-from .route import MODEL, SYSTEM_PROMPT, Mode
+from .route import SYSTEM_PROMPT, Mode, complete_json
 
 router = APIRouter()
 
@@ -40,11 +38,7 @@ les mêmes règles. Ne change que ce que l'instruction demande. Réponds UNIQUEM
 """
 
 
-def _parse(completion: ChatCompletionResponse, mode: Mode) -> RefineResponse:
-    content = completion.choices[0].message.content
-    if not isinstance(content, str) or not content.strip():
-        raise ValueError("empty completion")
-    data = json.loads(content)
+def _parse(data: dict, mode: Mode) -> RefineResponse:
     return RefineResponse(
         report_json=data.get("reportJson") if mode != "design_only" else None,
         css=data.get("css") if mode != "structure_only" else None,
@@ -67,12 +61,5 @@ def refine_report(request: RefineRequest) -> RefineResponse:
         "currentReportJson": request.report_json,
         "currentCss": request.css,
     }
-    completion = caller_mistral_client().chat.complete(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": REFINE_SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        response_format={"type": "json_object"},
-    )
-    return _parse(completion, request.mode)
+    data = complete_json(REFINE_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False))
+    return _parse(data, request.mode)

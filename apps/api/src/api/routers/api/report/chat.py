@@ -3,12 +3,10 @@ import io
 import json
 
 from fastapi import APIRouter
-from mistralai.client.models import ChatCompletionResponse
 from pydantic import BaseModel, Field
-from utils.mistral import caller_mistral_client
 
 from . import _store
-from .route import MODEL, SYSTEM_PROMPT, Mode
+from .route import SYSTEM_PROMPT, Mode, complete_json
 
 router = APIRouter()
 
@@ -101,11 +99,7 @@ def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
     return indicators, errors
 
 
-def _parse(completion: ChatCompletionResponse) -> ChatResponse:
-    content = completion.choices[0].message.content
-    if not isinstance(content, str) or not content.strip():
-        raise ValueError("empty completion")
-    data = json.loads(content)
+def _parse(data: dict) -> ChatResponse:
     return ChatResponse(
         reply=str(data.get("reply") or ""),
         done=bool(data.get("done")),
@@ -131,15 +125,8 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
     }
-    completion = caller_mistral_client().chat.complete(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ],
-        response_format={"type": "json_object"},
-    )
-    response = _parse(completion)
+    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False))
+    response = _parse(data)
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):

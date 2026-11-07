@@ -1,14 +1,41 @@
 import json
+import logging
 from typing import Literal
 
-from fastapi import APIRouter
-from mistralai.client.models import ChatCompletionResponse
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 from utils.mistral import caller_mistral_client
 
 MODEL = "mistral-large-4"
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+
+def complete_json(system_prompt: str, user_payload: str, *, retries: int = 1) -> dict:
+    """Call the model in JSON mode and parse its answer; one retry, then a clean 502.
+
+    The provider occasionally returns an error page/empty body instead of JSON; without this
+    guard the route crashes with a raw parse error instead of answering the chat.
+    """
+    for attempt in range(retries + 1):
+        try:
+            completion = caller_mistral_client().chat.complete(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_payload},
+                ],
+                response_format={"type": "json_object"},
+            )
+            content = completion.choices[0].message.content
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError("empty completion")
+            return json.loads(content)
+        except Exception as err:  # noqa: BLE001  any provider/parse failure becomes a clean 502
+            logger.warning("report model call failed (attempt %d/%d): %s", attempt + 1, retries + 1, err)
+    raise HTTPException(status_code=502, detail="Zai (Le Chonk) n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
 
 Mode = Literal["structure_and_design", "design_only", "structure_only"]
 
@@ -116,11 +143,7 @@ def _user_prompt(request: ReportRequest) -> str:
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
-def _parse_completion(completion: ChatCompletionResponse, request: Mode) -> ReportResponse:
-    content = completion.choices[0].message.content
-    if not isinstance(content, str) or not content.strip():
-        raise ValueError("empty completion")
-    data = json.loads(content)
+def _parse_completion(data: dict, request: Mode) -> ReportResponse:
     return ReportResponse(
         report_json=data.get("reportJson") if request != "design_only" else None,
         css=data.get("css") if request != "structure_only" else None,
@@ -137,12 +160,5 @@ def _parse_completion(completion: ChatCompletionResponse, request: Mode) -> Repo
 def generate_report(request: ReportRequest) -> ReportResponse:
     if request.mode != "design_only" and not request.indicators:
         return ReportResponse(notes="Aucun indicateur fourni pour générer la structure.")
-    completion = caller_mistral_client().chat.complete(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": _user_prompt(request)},
-        ],
-        response_format={"type": "json_object"},
-    )
-    return _parse_completion(completion, request.mode)
+    data = complete_json(SYSTEM_PROMPT, _user_prompt(request))
+    return _parse_completion(data, request.mode)

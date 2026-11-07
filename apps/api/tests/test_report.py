@@ -160,8 +160,6 @@ def test_report_design_requires_client_url(client: TestClient) -> None:
 
 
 def test_report_refine_returns_updated_livrables(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    from api.routers.api.report import refine as refine_route
-
     calls: list[dict] = []
     updated = {"reportJson": {"blocks": [{"type": "header"}]}, "css": ":root{--primary:#000}", "notes": "couleur changée"}
 
@@ -170,7 +168,7 @@ def test_report_refine_returns_updated_livrables(client: TestClient, monkeypatch
             calls.append(kwargs)
             return _completion(updated)
 
-    monkeypatch.setattr(refine_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
 
     res = client.post(
         "/api/report/refine",
@@ -196,11 +194,9 @@ def test_report_refine_returns_updated_livrables(client: TestClient, monkeypatch
 
 
 def test_report_chat_asks_for_missing_info(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from api.routers.api.report import chat as chat_route
-
     monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
     monkeypatch.setattr(
-        chat_route,
+        report_route,
         "caller_mistral_client",
         lambda: SimpleNamespace(
             chat=SimpleNamespace(complete=lambda **kwargs: _completion({"reply": "Quel est le nom du client ?", "done": False}))
@@ -215,13 +211,11 @@ def test_report_chat_asks_for_missing_info(client: TestClient, monkeypatch: pyte
 
 
 def test_report_chat_generates_and_saves_history(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
-    from api.routers.api.report import chat as chat_route
-
     store_path = tmp_path / "history.json"
     monkeypatch.setenv("REPORT_HISTORY_PATH", str(store_path))
     output = {"reply": "Voici le livrable.", "done": True, "reportJson": {"blocks": []}, "css": "body{}", "excluded": ["Note NA"]}
     monkeypatch.setattr(
-        chat_route,
+        report_route,
         "caller_mistral_client",
         lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **kwargs: _completion(output))),
     )
@@ -260,3 +254,23 @@ def test_parse_csv_indicators_maps_french_headers() -> None:
     assert indicators[0]["theme"] == "Environnement"
     assert indicators[0]["parentId"] == 412225
     assert indicators[1]["flag"] == "NA"
+
+
+def test_report_chat_returns_clean_502_when_model_output_is_not_json(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    monkeypatch.setattr(
+        report_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(
+            chat=SimpleNamespace(complete=lambda **kwargs: _completion_raw("Internal Server Error"))
+        ),
+    )
+    res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
+    assert res.status_code == 502
+    assert "Zai (Le Chonk)" in res.json()["detail"]
+
+
+def _completion_raw(content: str) -> SimpleNamespace:
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
