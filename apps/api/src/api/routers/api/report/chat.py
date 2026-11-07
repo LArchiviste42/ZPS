@@ -8,7 +8,7 @@ import re
 import time
 import xml.etree.ElementTree as ET
 import zipfile
-from typing import Literal
+from typing import Any, Literal
 
 import httpx
 from fastapi import APIRouter
