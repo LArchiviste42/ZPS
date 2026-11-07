@@ -2,6 +2,11 @@
   "schemaVersion": 2,
   "kind": "app",
   "name": "mistral-app",
+  "deployment": {
+    "organizationId": "200bf19a-d80c-4b34-978d-7399d048d5a2",
+    "workspaceId": "6e005cf4-b72f-45b7-83ae-b30a42c58b18",
+    "appId": "01a1b516-620c-73fd-be04-011607226bfa"
+  },
   "modules": [
     {
       "type": "app",
