@@ -616,7 +616,7 @@ function ChatColumn({
                 </span>
               )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
-              {turn.role === "assistant" && turn.awaitingFile && (
+              {turn.role === "assistant" && turn.awaitingFile && !turn.fields?.some((f) => f.type === "file") && (
                 <div className="mt-2">
                   <button
                     type="button"
