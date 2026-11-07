@@ -740,57 +740,61 @@ function Questionnaire({
 }
 
 function ChonkThinking() {
-  // Gros chat orange (style Mistral) qui joue avec une pelotte de laine verte Zei, fil qui se déroule.
+  // Gros chat orange (style Mistral) SUR LE DOS, pattes en l'air qui jouent avec la pelote de laine verte Zei.
   return (
     <svg
       viewBox="0 0 140 96"
       className="chonk-bob h-full w-auto"
       role="img"
-      aria-label="Zai (Le Chonk), gros chat orange qui joue avec une pelotte de laine verte Zei"
+      aria-label="Zai (Le Chonk), chat orange sur le dos qui joue avec une pelote de laine verte Zei"
     >
-      {/* fil de laine qui se déroule */}
+      {/* fil de laine */}
       <path
         className="chonk-thread"
-        d="M112 78 C 126 82, 132 70, 120 66 C 108 62, 100 74, 88 72"
+        d="M118 34 C 130 40, 136 28, 126 24 C 116 20, 108 30, 96 26"
         stroke="#58B896"
         strokeWidth="2.5"
         fill="none"
         strokeLinecap="round"
       />
-      {/* pelotte de laine verte Zei qui roule */}
+      {/* pelote verte Zei qui rebondit au-dessus des pattes */}
       <g className="chonk-ball">
-        <circle cx="104" cy="72" r="14" fill="#58B896" />
-        <path d="M92 68 Q104 62 116 68 M91 74 Q104 68 117 74 M94 80 Q104 74 114 80" stroke="#3E8E6E" strokeWidth="1.6" fill="none" />
-        <circle cx="104" cy="72" r="14" fill="none" stroke="#4AA886" strokeWidth="1.5" />
+        <circle cx="104" cy="24" r="14" fill="#58B896" />
+        <path d="M92 20 Q104 14 116 20 M91 26 Q104 20 117 26 M94 32 Q104 26 114 32" stroke="#3E8E6E" strokeWidth="1.6" fill="none" />
+        <circle cx="104" cy="24" r="14" fill="none" stroke="#4AA886" strokeWidth="1.5" />
       </g>
       {/* queue */}
       <g className="chonk-tail">
-        <path d="M22 70 Q10 66 12 54" stroke="#FF8205" strokeWidth="7" fill="none" strokeLinecap="round" />
+        <path d="M100 84 Q114 88 116 78" stroke="#FF8205" strokeWidth="7" fill="none" strokeLinecap="round" />
       </g>
-      {/* corps */}
-      <ellipse cx="52" cy="66" rx="30" ry="22" fill="#FF8205" />
-      <ellipse cx="52" cy="72" rx="22" ry="13" fill="#FFAF00" />
-      {/* tête qui se penche vers la pelote */}
+      {/* corps sur le dos */}
+      <ellipse cx="62" cy="80" rx="34" ry="15" fill="#FF8205" />
+      <ellipse cx="62" cy="76" rx="26" ry="10" fill="#FFD8A8" />
+      {/* tête couchée sur le côté */}
       <g className="chonk-head">
-        <circle cx="52" cy="36" r="24" fill="#FF8205" />
-        <path d="M34 24 L28 6 L46 16 Z" fill="#FF8205" />
-        <path d="M70 24 L76 6 L58 16 Z" fill="#FF8205" />
-        <path d="M36 20 L32 10 L43 15 Z" fill="#E10500" />
-        <path d="M68 20 L72 10 L61 15 Z" fill="#E10500" />
+        <circle cx="28" cy="70" r="17" fill="#FF8205" />
+        <path d="M16 60 L10 46 L24 54 Z" fill="#FF8205" />
+        <path d="M38 56 L44 44 L46 58 Z" fill="#FF8205" />
+        <path d="M18 58 L14 49 L23 54 Z" fill="#E10500" />
         <g className="chonk-eyes">
-          <circle cx="43" cy="34" r="3.4" fill="#262882" />
-          <circle cx="61" cy="34" r="3.4" fill="#262882" />
+          <circle cx="22" cy="68" r="2.8" fill="#262882" />
+          <circle cx="34" cy="66" r="2.8" fill="#262882" />
         </g>
-        <path d="M48 43 Q52 47 56 43" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
-        <path d="M28 40 L16 37 M28 45 L16 47 M76 40 L88 37 M76 45 L88 47" stroke="#FFD8B0" strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M25 75 Q28 78 31 75" stroke="#262882" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        <path d="M12 72 L4 70 M13 76 L5 78 M42 70 L50 68" stroke="#FFD8B0" strokeWidth="1.4" strokeLinecap="round" />
       </g>
-      {/* patte qui bat la pelotte */}
-      <g className="chonk-paw">
-        <rect x="66" y="56" width="22" height="9" rx="4.5" fill="#FF8205" />
+      {/* pattes en l'air qui battent la pelote (alternées) */}
+      <g className="chonk-paws">
+        <rect x="52" y="52" width="9" height="20" rx="4.5" fill="#FFAF00" />
+        <rect x="64" y="50" width="9" height="22" rx="4.5" fill="#FF8205" />
       </g>
-      {/* pattes */}
-      <ellipse cx="42" cy="86" rx="8" ry="4.5" fill="#E8730A" />
-      <ellipse cx="62" cy="86" rx="8" ry="4.5" fill="#E8730A" />
+      <g className="chonk-paws-alt">
+        <rect x="76" y="50" width="9" height="22" rx="4.5" fill="#FFAF00" />
+        <rect x="88" y="52" width="9" height="20" rx="4.5" fill="#FF8205" />
+      </g>
+      {/* pattes arrière */}
+      <ellipse cx="46" cy="92" rx="8" ry="4" fill="#E8730A" />
+      <ellipse cx="80" cy="92" rx="8" ry="4" fill="#E8730A" />
     </svg>
   );
 }

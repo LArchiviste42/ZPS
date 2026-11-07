@@ -164,6 +164,27 @@
   animation: chonk-paw 0.9s ease-in-out infinite;
 }
 
+@keyframes chonk-paws {
+  0%,
+  100% {
+    transform: rotate(-8deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+.chonk-paws {
+  transform-origin: 60px 62px;
+  animation: chonk-paws 0.45s ease-in-out infinite;
+}
+
+.chonk-paws-alt {
+  transform-origin: 84px 62px;
+  animation: chonk-paws 0.45s ease-in-out infinite;
+  animation-delay: -0.22s;
+}
+
 @keyframes chonk-head {
   0%,
   100% {
@@ -219,6 +240,8 @@
   .chonk-juggle,
   .chonk-ball,
   .chonk-paw,
+  .chonk-paws,
+  .chonk-paws-alt,
   .chonk-head,
   .chonk-thread {
     animation: none;
