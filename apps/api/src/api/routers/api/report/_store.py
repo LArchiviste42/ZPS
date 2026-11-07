@@ -19,9 +19,15 @@ _lock = threading.Lock()
 
 
 def _use_db() -> bool:
-    # The platform injects DATABASE_URL into deployed services; without it (local dev, tests) we
-    # keep the file store so nothing depends on a running Postgres.
-    return bool(os.environ.get("DATABASE_URL"))
+    # The platform injects the managed DB's connection settings (POSTGRES_HOST / a non-local
+    # DATABASE_URL) into deployed services. Local dev and tests keep the default localhost URL
+    # or none at all -> file store, so nothing depends on a running Postgres.
+    if os.environ.get("REPORT_HISTORY_DB") == "1":
+        return True
+    if os.environ.get("POSTGRES_HOST"):
+        return True
+    url = os.environ.get("DATABASE_URL", "")
+    return bool(url) and "localhost" not in url and "127.0.0.1" not in url
 
 
 def _path() -> Path:

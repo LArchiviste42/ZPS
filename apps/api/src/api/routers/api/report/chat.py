@@ -82,7 +82,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - ORDRE DES DEMANDES en mode JSON : d'abord organizationId + networkId (toujours des NOMBRES : champs "type": "number"), puis le fichier CSV de la matrice réseau, puis les choix (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné, les questions CSS (nom, URL) viennent avant.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
-- NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire.
+- NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 - Ne demande JAMAIS de confirmation à l'utilisateur (« c'est bon ? », « voulez-vous que je génère ? », « puis-je commencer ? ») : dès que tu as toutes les informations requises, génère immédiatement (done=true avec le livrable). L'utilisateur peut toujours affiner ensuite en langage naturel.
 - MODE COMBINÉ (structure_and_design) EN DEUX TEMPS :
@@ -256,10 +256,14 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         if not ((needs_css and response.css) or (needs_json and response.report_json)):
             response.done = False
             response.reply += " (Je n'ai pas réussi à produire le livrable : peux-tu me donner les codes couleur hex de la charte du client ?)"
-    # Stuck guard: not done, no question, no options/fields -> the model announced instead of acting.
-    if not response.done and not response.options and not response.fields and "?" not in response.reply:
+    # Stuck guard: not done, no question, no options/fields, or an announcement ("je vais...") ->
+    # the model announced instead of acting. Up to 2 corrective rounds until it delivers or asks.
+    for _ in range(2):
+        announced = "je vais" in response.reply.lower()
+        if response.done or response.options or response.fields or ("?" in response.reply and not announced):
+            break
         corrected = complete_json(
-            CHAT_SYSTEM_PROMPT + "\nCORRECTION : ta dernière réponse annonçait une action sans rien produire ni poser de question. Génère maintenant le livrable demandé (ou pose la prochaine question).",
+            CHAT_SYSTEM_PROMPT + "\nCORRECTION : ta dernière réponse annonçait une action sans rien produire. Le CSV est déjà parsé dans csvIndicators. Génère maintenant le livrable demandé (done=true + contenu), ou pose la prochaine question.",
             json.dumps(payload, ensure_ascii=False),
             model=CHAT_MODEL,
             retries=1,
@@ -272,22 +276,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.fields = fixed.fields
         response.report_json = fixed.report_json or response.report_json
         response.css = fixed.css or response.css
-    if response.done and (response.report_json or response.css):
-        client_name = ""
-        for m in reversed(request.messages):
-            if m.role == "user" and m.content:
-                client_name = m.content[:80]
-                break
-        try:
-            entry = _store.save_entry(
-                mode=request.mode,
-                client_name=client_name,
-                summary=response.reply[:200] or "livrable généré",
-                report_json=response.report_json,
-                css=response.css,
-            )
-            response.history_id = entry["id"]
-        except OSError:
-            # History is best-effort: never fail the request (and lose the deliverable) over it.
-            logger.warning("history save failed", exc_info=True)
+        response.excluded = fixed.excluded or response.excluded
+        if not response.notes and fixed.notes:
+            response.notes = fixed.notes
     return response
