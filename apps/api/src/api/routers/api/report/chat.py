@@ -168,8 +168,8 @@ def xlsx_to_csv_text(data: bytes) -> str:
                 target = rel_map.get(sh.get(f"{rns}id"), "")
                 if target:
                     sheet_files.append("xl/" + target.lstrip("/") if not target.startswith("xl/") else target)
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as wb_err:  # noqa: BLE001
+            logger.warning("workbook.xml unreadable, falling back to sheet files: %s", wb_err)
         if not sheet_files:
             sheet_files = sorted(n for n in z.namelist() if n.startswith("xl/worksheets/sheet") and n.endswith(".xml"))
 
@@ -208,8 +208,6 @@ def extract_organization_id(csv_text: str) -> int | None:
         return None
     for i, h in enumerate(first):
         if h.strip().lower() in {"organization id", "organisation id", "organization_id", "id organisation", "id orga"}:
-            for row in csv.reader(io.StringIO(csv_text), delimiter=";"):
-                pass
             rows = list(csv.reader(io.StringIO(csv_text), delimiter=";"))
             for row in rows[1:]:
                 if len(row) > i and row[i].strip().isdigit():
