@@ -231,7 +231,7 @@ def test_report_chat_generates_and_saves_history(client: TestClient, monkeypatch
     )
     res = client.post(
         "/api/report/chat",
-        json={"mode": "structure_and_design", "messages": [{"role": "user", "content": "Client EDF"}], "csv": "Thématique;Indicateur;Type;ID Parent\nEnvironnement;Émissions GES;Nombre;412225", "reportJson": {"blocks": []}},
+        json={"mode": "structure_and_design", "messages": [{"role": "user", "content": "Client EDF"}], "csv": "Thématique;Indicateur;Type;ID Parent\nEnvironnement;Émissions GES;Nombre;412225", "reportJson": {"blocks": []}, "forcePhase": "css"},
     )
     assert res.status_code == 200
     body = res.json()

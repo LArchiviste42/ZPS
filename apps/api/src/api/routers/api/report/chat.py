@@ -39,6 +39,8 @@ class ChatRequest(BaseModel):
     file_b64: str | None = Field(default=None, alias="fileB64")
     # Capture d'écran du site du client (image), encodée en base64 — pour déduire le design quand le site bloque les bots.
     image_b64: str | None = Field(default=None, alias="imageB64")
+    # "css" quand l'utilisateur a cliqué « JSON terminé » : on passe alors à la phase CSS.
+    force_phase: str | None = Field(default=None, alias="forcePhase")
     # Livrable courant, pour les demandes de raffinement en langage naturel après génération.
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
@@ -100,7 +102,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - MODE COMBINÉ (structure_and_design) EN DEUX TEMPS :
   * phase 1 (currentReportJson absent) : rassemble les infos JSON (CSV matrice réseau, organizationId, networkId, exercices historiques, ratio graphiques/tableaux) et génère UNIQUEMENT reportJson (css = null), done=true. Dans "reply", dis : le JSON est prêt et téléchargeable — réponds « ok » pour passer au CSS.
   * phase 2 (currentReportJson fourni, currentCss absent) : rassemble les infos CSS si manquantes (nom du client, URL du site), puis génère UNIQUEMENT le css (reportJson = currentReportJson inchangé), done=true.
-- RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant en conséquence et réponds done=true avec le livrable modifié. Ne recommence pas les questions.
+- MODE COMBINÉ, BOUCLE D'ITÉRATION : après la V1 du JSON (phase 1), propose TOUJOURS les options ["Itérer sur le JSON", "JSON terminé"]. Tant que l'utilisateur n'a pas cliqué « JSON terminé », tu restes sur le JSON (itérations en langage naturel) et tu ne produis JAMAIS de CSS. Le CSS ne démarre qu'en phase 2, après « JSON terminé ».
+- RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant (currentCss prioritairement si la demande porte sur le design) en conséquence et réponds done=true avec le livrable modifié. Ne recommence JAMAIS les questions ni le questionnaire quand un livrable existe.
 - NOUVELLE DEMANDE = repartir de zéro : si l'utilisateur annonce un nouveau client, une nouvelle URL de site ou une nouvelle demande, IGNORE currentCss / currentReportJson (ils appartiennent à une autre demande) et régénère depuis le template de base + la charte du NOUAUVEAU client. Ne mélange jamais la charte d'un ancien client avec celle du nouveau.
 """
 
@@ -335,12 +338,12 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     }
     data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64)
     response = _parse(data)
-    if site_brand and site_brand.get("blocked"):
+    if site_brand and site_brand.get("blocked") and not request.css:
         # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
-    elif site_brand and site_brand.get("error"):
+    elif site_brand and site_brand.get("error") and not request.css:
         # Site unreachable from here (egress/proxy): NOT a bot block — offer the screenshot without claiming "blocked".
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
@@ -363,11 +366,13 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     # Two-phase combined mode: phase 1 = JSON only, phase 2 (current JSON present) = CSS.
     if request.mode == "structure_and_design":
         if request.report_json is None:
-            response.css = None
+            response.css = None  # phase 1 : JSON seul
+        elif request.force_phase == "css":
+            response.report_json = response.report_json or request.report_json  # phase 2 : CSS
         else:
-            response.report_json = response.report_json or request.report_json
+            response.css = None  # itération sur le JSON : on ne touche pas au CSS
     # Guard: done=true but the deliverable for the mode is empty -> one corrective call.
-    needs_css = request.mode == "design_only" or (request.mode == "structure_and_design" and request.report_json is not None)
+    needs_css = request.mode == "design_only" or (request.mode == "structure_and_design" and request.force_phase == "css")
     needs_json = request.mode != "design_only"
     if response.done and ((needs_css and not response.css) or (needs_json and not response.report_json)):
         corrected = complete_json(
@@ -409,16 +414,20 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.excluded = fixed.excluded or response.excluded
         if not response.notes and fixed.notes:
             response.notes = fixed.notes
-    if site_brand and site_brand.get("blocked"):
+    if site_brand and site_brand.get("blocked") and not request.css:
         # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Le site est protégé contre les bots : envoie une capture d'écran de son site via le bouton « Ajouter un fichier »."
-    elif site_brand and site_brand.get("error"):
+    elif site_brand and site_brand.get("error") and not request.css:
         # Site unreachable from here (egress/proxy): NOT a bot block — offer the screenshot without claiming "blocked".
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
+    if request.mode == "structure_and_design" and request.report_json is None and response.done and response.report_json:
+        # V1 du JSON produite : demander l'itération jusqu'à « JSON terminé » avant le CSS.
+        response.options = ["Itérer sur le JSON", "JSON terminé"]
+        response.reply += " — V1 du JSON prête. Itère dessus en langage naturel, ou clique « JSON terminé » pour passer au CSS."
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):

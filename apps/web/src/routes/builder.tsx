@@ -229,6 +229,7 @@ function BuilderPage() {
         imageB64: uploadOverride?.imgB64 ?? (imgB64 || null),
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
+        forcePhase: /terminé/i.test(text) ? "css" : null,
       });
       setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields, awaitingFile: data.awaitingFile }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
