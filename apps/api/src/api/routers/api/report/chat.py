@@ -55,6 +55,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * réponds avec "done": true en incluant reportJson et/ou css.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
+- NE DIS JAMAIS que tu vas consulter le site web toi-même : tu ne peux pas naviguer. Demande l'URL du site, puis produis le CSS directement : charte connue du client si elle est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande à l'utilisateur les codes hex / polices de la charte.
+- Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 """
 
 _HEADER_ALIASES = {
@@ -147,6 +149,24 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.excluded = final_response.excluded
         if final_response.notes:
             response.notes = final_response.notes
+    # Guard: done=true but the deliverable for the mode is empty -> one corrective call.
+    needs_css = request.mode != "structure_only"
+    needs_json = request.mode != "design_only"
+    if response.done and ((needs_css and not response.css) or (needs_json and not response.report_json)):
+        corrected = complete_json(
+            CHAT_SYSTEM_PROMPT + "\nCORRECTION : ta réponse disait done=true sans livrer de contenu non vide. Produits maintenant le livrable complet demandé (css et/ou reportJson).",
+            json.dumps(payload, ensure_ascii=False),
+            model=CHAT_MODEL,
+            retries=1,
+        )
+        fixed = _parse(corrected)
+        if needs_css and not response.css:
+            response.css = fixed.css
+        if needs_json and not response.report_json:
+            response.report_json = fixed.report_json
+        if not ((needs_css and response.css) or (needs_json and response.report_json)):
+            response.done = False
+            response.reply += " (Je n'ai pas réussi à produire le livrable : peux-tu me donner les codes couleur hex de la charte du client ?)"
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in reversed(request.messages):

@@ -274,3 +274,21 @@ def test_report_chat_returns_clean_502_when_model_output_is_not_json(
 
 def _completion_raw(content: str) -> SimpleNamespace:
     return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
+
+
+def test_report_chat_repairs_done_with_empty_css(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    outputs = iter([
+        {"reply": "Merci ! Je vais extraire la charte…", "done": True, "css": None},
+        {"reply": "Voici le CSS.", "done": True, "css": ":root{--primary:#07387a}"},
+    ])
+    monkeypatch.setattr(
+        report_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **kwargs: _completion(next(outputs)))),
+    )
+    res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF https://www.edf.fr"}]})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] is True
+    assert body["css"] == ":root{--primary:#07387a}"
