@@ -537,3 +537,41 @@ def test_parse_keeps_only_most_recent_exercise_per_indicator() -> None:
     assert len(indicators) == 2
     ges = next(i for i in indicators if i["parentId"] == 412225)
     assert ges["name"] == "Émissions GES 2026"
+
+
+def test_fetch_site_brand_extracts_colors_and_fonts() -> None:
+    import httpx
+
+    from api.routers.api.report.chat import fetch_site_brand
+
+    html = "<html><head><title>Client Demo</title><link rel='stylesheet' href='/style.css'><style>body{font-family:'Montserrat',sans-serif;color:#222222}</style></head><body style='color:#e2001a'>x</body></html>"
+    css = ":root{--brand:#e2001a}h1{font-family:'Montserrat';color:#e2001a}"
+
+    class FakeResp:
+        def __init__(self, text: str, url: str, status: int = 200):
+            self.text = text
+            self.status_code = status
+            self.url = httpx.URL(url)
+
+    class FakeClient:
+        def __init__(self, *a: object, **k: object) -> None:
+            pass
+
+        def __enter__(self) -> "FakeClient":
+            return self
+
+        def __exit__(self, *a: object) -> None:
+            pass
+
+        def get(self, url: str, **k: object) -> FakeResp:
+            if url.endswith(".css"):
+                return FakeResp(css, url)
+            return FakeResp(html, "https://client.example/")
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    out = fetch_site_brand("https://client.example/")
+    assert out["title"] == "Client Demo"
+    assert "#e2001a" in out["colors"] and "#222222" in out["colors"]
+    assert any("Montserrat" in f for f in out["fonts"])
+    monkeypatch.undo()

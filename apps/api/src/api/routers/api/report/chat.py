@@ -127,7 +127,9 @@ def fetch_site_brand(url: str) -> dict:
     """Extract the client site's visual identity: title, hex colors and font-families from the
     HTML and its first stylesheets. Best-effort; returns an error field on failure."""
     try:
-        with httpx.Client(timeout=10, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+        # trust_env=False: the container's HTTPS_PROXY points at the internal gateway (for api.mistral.ai);
+        # reading a CLIENT site must go direct, not through that proxy.
+        with httpx.Client(timeout=10, follow_redirects=True, trust_env=False, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126 Safari/537.36"}) as client:
             resp = client.get(url)
             head = resp.text[:5000].lower()
             bot_markers = ("cloudflare", "just a moment", "attention required", "captcha", "datadome", "perimeterx", "akamai", "access denied", "are you a robot", "verify you are human")
@@ -140,7 +142,7 @@ def fetch_site_brand(url: str) -> dict:
             colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
             fonts = re.findall(r"font-family:\s*([^;}]+)", html)
             for href in re.findall(r'<link[^>]+href=["\']([^"\']+\.css[^"\']*)["\']', html)[:3]:
-                css_url = href if href.startswith("http") else resp.url.join(href).human_repr()
+                css_url = href if href.startswith("http") else str(resp.url.join(href))
                 try:
                     css = client.get(css_url).text[:100_000]
                     colors += re.findall(r"#[0-9a-fA-F]{6}\b", css)
