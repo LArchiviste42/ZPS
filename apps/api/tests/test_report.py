@@ -541,7 +541,6 @@ def test_parse_keeps_only_most_recent_exercise_per_indicator() -> None:
 
 def test_fetch_site_brand_extracts_colors_and_fonts() -> None:
     import httpx
-
     from api.routers.api.report.chat import fetch_site_brand
 
     html = "<html><head><title>Client Demo</title><link rel='stylesheet' href='/style.css'><style>body{font-family:'Montserrat',sans-serif;color:#222222}</style></head><body style='color:#e2001a'>x</body></html>"
