@@ -746,20 +746,20 @@ function ChonkThinking() {
       {/* corps */}
       <ellipse cx="52" cy="66" rx="30" ry="22" fill="#FF8205" />
       <ellipse cx="52" cy="72" rx="22" ry="13" fill="#FFAF00" />
-      {/* tête */}
-      <circle cx="52" cy="36" r="24" fill="#FF8205" />
-      <path d="M34 24 L28 6 L46 16 Z" fill="#FF8205" />
-      <path d="M70 24 L76 6 L58 16 Z" fill="#FF8205" />
-      <path d="M36 20 L32 10 L43 15 Z" fill="#E10500" />
-      <path d="M68 20 L72 10 L61 15 Z" fill="#E10500" />
-      {/* yeux qui clignent */}
-      <g className="chonk-eyes">
-        <circle cx="43" cy="34" r="3.4" fill="#262882" />
-        <circle cx="61" cy="34" r="3.4" fill="#262882" />
+      {/* tête qui se penche vers la pelote */}
+      <g className="chonk-head">
+        <circle cx="52" cy="36" r="24" fill="#FF8205" />
+        <path d="M34 24 L28 6 L46 16 Z" fill="#FF8205" />
+        <path d="M70 24 L76 6 L58 16 Z" fill="#FF8205" />
+        <path d="M36 20 L32 10 L43 15 Z" fill="#E10500" />
+        <path d="M68 20 L72 10 L61 15 Z" fill="#E10500" />
+        <g className="chonk-eyes">
+          <circle cx="43" cy="34" r="3.4" fill="#262882" />
+          <circle cx="61" cy="34" r="3.4" fill="#262882" />
+        </g>
+        <path d="M48 43 Q52 47 56 43" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M28 40 L16 37 M28 45 L16 47 M76 40 L88 37 M76 45 L88 47" stroke="#FFD8B0" strokeWidth="1.6" strokeLinecap="round" />
       </g>
-      <path d="M48 43 Q52 47 56 43" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
-      {/* moustaches */}
-      <path d="M28 40 L16 37 M28 45 L16 47 M76 40 L88 37 M76 45 L88 47" stroke="#FFD8B0" strokeWidth="1.6" strokeLinecap="round" />
       {/* patte qui bat la pelotte */}
       <g className="chonk-paw">
         <rect x="66" y="56" width="22" height="9" rx="4.5" fill="#FF8205" />

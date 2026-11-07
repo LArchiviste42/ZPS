@@ -127,10 +127,16 @@
 @keyframes chonk-ball-roll {
   0%,
   100% {
-    transform: translateX(0) rotate(0deg);
+    transform: translateX(0) translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateX(10px) translateY(-8px) rotate(90deg);
   }
   50% {
-    transform: translateX(14px) rotate(180deg);
+    transform: translateX(20px) translateY(0) rotate(180deg);
+  }
+  75% {
+    transform: translateX(10px) translateY(-8px) rotate(270deg);
   }
 }
 
@@ -144,14 +150,33 @@
   100% {
     transform: rotate(0deg);
   }
+  25%,
+  75% {
+    transform: rotate(-32deg);
+  }
   50% {
-    transform: rotate(-28deg);
+    transform: rotate(4deg);
   }
 }
 
 .chonk-paw {
   transform-origin: 70px 62px;
   animation: chonk-paw 0.9s ease-in-out infinite;
+}
+
+@keyframes chonk-head {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(7deg) translateY(2px);
+  }
+}
+
+.chonk-head {
+  transform-origin: 52px 56px;
+  animation: chonk-head 1.8s ease-in-out infinite;
 }
 
 @keyframes chonk-thread {
@@ -194,6 +219,7 @@
   .chonk-juggle,
   .chonk-ball,
   .chonk-paw,
+  .chonk-head,
   .chonk-thread {
     animation: none;
   }
