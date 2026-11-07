@@ -382,10 +382,9 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             response.excluded = forced_response.excluded
             response.notes = forced_response.notes
     # Après chaque CSS produit (V1 ou itération), proposer l'optimisation par Le Chonk.
-    if response.done and response.css and request.mode != "structure_only":
-        if "le chonk" not in response.reply.lower():
-            response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
-            response.options = ["Oui", "Non"]
+    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower():
+        response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
+        response.options = ["Oui", "Non"]
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
         final = complete_json(
@@ -484,10 +483,9 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             response.excluded = forced_response.excluded
             response.notes = forced_response.notes
     # Après chaque CSS produit (V1 ou itération), proposer l'optimisation par Le Chonk.
-    if response.done and response.css and request.mode != "structure_only":
-        if "le chonk" not in response.reply.lower():
-            response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
-            response.options = ["Oui", "Non"]
+    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower():
+        response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
+        response.options = ["Oui", "Non"]
     if response.done and (response.report_json or response.css):
         client_name = ""
         for m in request.messages:
