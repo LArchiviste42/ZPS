@@ -609,7 +609,6 @@ def test_report_chat_last_resort_ml4_generation_on_persistent_announcements(
 
 def test_403_without_challenge_page_is_error_not_blocked() -> None:
     import httpx
-
     from api.routers.api.report.chat import fetch_site_brand
 
     def fake_get(url: str) -> httpx.Response:
