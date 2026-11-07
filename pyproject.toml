@@ -59,4 +59,4 @@ exclude = ["apps/web"]
 
 [tool.ruff.lint.per-file-ignores]
 # File-based router convention: `[param].py` files are URL templates, not importable module names.
-"apps/api/src/api/routers/**/[[]]*.py" = ["N999"]
+"**/[[]]*.py" = ["N999"]
