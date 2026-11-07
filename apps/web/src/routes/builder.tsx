@@ -395,7 +395,7 @@ function BuilderPage() {
 
       {view === "chat" && (
       <div
-        className={`mx-auto flex w-full ${report ? "max-w-none px-2" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6 rounded-2xl transition ${isDragging ? "ring-2 ring-zei-mint bg-white/5" : ""}`}
+        className={`mx-auto flex w-full ${report ? "max-w-none px-2 lg:h-[calc(100vh-5rem)] lg:overflow-hidden" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6 rounded-2xl transition ${isDragging ? "ring-2 ring-zei-mint bg-white/5" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -478,9 +478,9 @@ function BuilderPage() {
         )}
 
         {report && (
-          <div className="grid flex-1 gap-4 lg:h-[calc(100vh-7rem)] lg:grid-cols-[3fr_2fr]">
-            <div className="flex flex-col gap-3">
-              <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white">
+          <div className="grid min-h-0 flex-1 gap-4 lg:h-full lg:grid-cols-[3fr_2fr]">
+            <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+              <div className="relative shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-white">
                 <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report, 0.5)} />
                 <button
                   type="button"
