@@ -150,6 +150,15 @@ function BuilderPage() {
   const modeTags = (mode: string): string[] =>
     mode === "structure_only" ? ["JSON"] : mode === "design_only" ? ["CSS"] : ["JSON", "CSS"];
 
+  // Group by client, newest client first; within a client, entries are versions (newest first).
+  const groupedHistory = Object.entries(
+    filteredHistory.reduce((acc, h) => {
+      const key = h.client_name || "Sans nom";
+      (acc[key] ??= []).push(h);
+      return acc;
+    }, {} as Record<string, HistoryEntry[]>),
+  ).sort((a, b) => (b[1][0]?.created_at ?? "").localeCompare(a[1][0]?.created_at ?? ""));
+
   const loadHistoryEntry = async (id: string) => {
     const { ok, data } = await fetchJson(`/api/report/history/${id}`);
     if (!ok || !data) return;
@@ -292,34 +301,46 @@ function BuilderPage() {
                 {history.length === 0 ? "Aucune demande pour l'instant." : "Aucun résultat pour cette recherche."}
               </p>
             )}
-            <ul className="flex flex-1 flex-col gap-2 overflow-y-auto">
-              {filteredHistory.map((h) => (
-                <li key={h.id}>
-                  <button
-                    type="button"
-                    onClick={() => void loadHistoryEntry(h.id)}
-                    className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-sm text-white hover:bg-white/20"
-                  >
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="font-bold">{h.client_name || "Sans nom"}</span>
-                      <span className="flex gap-1">
-                        {modeTags(h.mode).map((tag) => (
-                          <span
-                            key={tag}
-                            className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
-                              tag === "JSON" ? "bg-zei-indigo text-white" : "bg-zei-mint text-zei-navy"
-                            }`}
-                          >
-                            {tag}
+            <ul className="flex flex-1 flex-col gap-3 overflow-y-auto">
+              {groupedHistory.map(([client, entries]) => (
+                <li key={client}>
+                  <p className="mb-1 flex items-center justify-between px-1 text-xs font-extrabold uppercase tracking-wide text-zei-mint">
+                    <span>{client}</span>
+                    <span className="text-white/50">
+                      {entries.length} version{entries.length > 1 ? "s" : ""}
+                    </span>
+                  </p>
+                  <ul className="flex flex-col gap-1.5">
+                    {entries.map((h, i) => (
+                      <li key={h.id}>
+                        <button
+                          type="button"
+                          onClick={() => void loadHistoryEntry(h.id)}
+                          className="w-full rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-left text-sm text-white hover:bg-white/20"
+                        >
+                          <span className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-bold text-white/90">v{entries.length - i}</span>
+                            <span className="flex gap-1">
+                              {modeTags(h.mode).map((tag) => (
+                                <span
+                                  key={tag}
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase ${
+                                    tag === "JSON" ? "bg-zei-indigo text-white" : "bg-zei-mint text-zei-navy"
+                                  }`}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </span>
                           </span>
-                        ))}
-                      </span>
-                    </span>
-                    <span className="mt-1 block text-xs text-white/60">
-                      {new Date(h.created_at).toLocaleString("fr-FR")}
-                    </span>
-                    <span className="block text-xs text-white/60">{h.summary}</span>
-                  </button>
+                          <span className="mt-1 block text-xs text-white/60">
+                            {new Date(h.created_at).toLocaleString("fr-FR")}
+                          </span>
+                          <span className="block text-xs text-white/60">{h.summary}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
