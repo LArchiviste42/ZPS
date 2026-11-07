@@ -1,4 +1,15 @@
+@import url("https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400..900;1,400..900&display=swap");
 @import "tailwindcss";
+
+/* Zei brand tokens — charte logo 2022 (#58B896 mint, #3C3C3B ink) and current palette (#262882 navy, #4347E8 indigo). */
+@theme {
+  --color-zei-mint: #58b896;
+  --color-zei-ink: #3c3c3b;
+  --color-zei-navy: #262882;
+  --color-zei-indigo: #4347e8;
+
+  --font-sans: "Nunito", ui-rounded, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 
 @layer base {
   html,
@@ -7,7 +18,7 @@
   }
 
   body {
-    @apply antialiased;
+    @apply bg-white font-sans text-zei-ink antialiased;
   }
 }
 
