@@ -106,7 +106,7 @@ async function postChat(payload: Record<string, unknown>): Promise<ChatResponse>
   }
   if (!result.ok || result.data == null) {
     const detail = result.data?.detail;
-    throw new Error(typeof detail === "string" ? detail : `Zai (Le Chonk) n'a pas pu répondre (erreur ${result.status}). Réessaie.`);
+    throw new Error(typeof detail === "string" ? detail : `Zai n'a pas pu répondre (erreur ${result.status}). Réessaie.`);
   }
   return result.data as ChatResponse;
 }
@@ -679,7 +679,7 @@ function ChatColumn({
             >
               {turn.role === "assistant" && (
                 <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
-                  Zai (Le Chonk)
+                  Zai
                 </span>
               )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
@@ -718,7 +718,7 @@ function ChatColumn({
           {pending && (
             <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-6 py-5">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
-                Zai (Le Chonk) réfléchit…
+                Zai réfléchit…
               </span>
               <div className="h-48 w-64">
                 <ChonkThinking />
@@ -807,7 +807,7 @@ function DownloadJsonButton({ reportJson }: { reportJson: unknown }) {
   );
 }
 
-/* ---------- Zai (Le Chonk), gros chaton animé ---------- */
+/* ---------- Zai, gros chaton animé ---------- */
 
 function Questionnaire({
   fields,

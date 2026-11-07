@@ -83,7 +83,7 @@ def complete_json(
                     if "429" in str(err):
                         time.sleep(5)
                         break
-    raise HTTPException(status_code=502, detail="Zai (Le Chonk) n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
+    raise HTTPException(status_code=502, detail="Zai n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
 
 Mode = Literal["structure_and_design", "design_only", "structure_only"]
 

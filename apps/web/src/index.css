@@ -50,7 +50,7 @@
   background: linear-gradient(135deg, #262882 0%, #4347e8 100%);
 }
 
-/* Zai (Le Chonk) thinking indicator: progress bar + animated chonky cat. */
+/* Zai thinking indicator: progress bar + animated chonky cat. */
 @keyframes zei-progress {
   0% {
     transform: translateX(-100%);

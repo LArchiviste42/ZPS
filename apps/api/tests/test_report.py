@@ -279,7 +279,7 @@ def test_report_chat_returns_clean_502_when_model_output_is_not_json(
     )
     res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
     assert res.status_code == 502
-    assert "Zai (Le Chonk)" in res.json()["detail"]
+    assert "Zai" in res.json()["detail"]
 
 
 def _completion_raw(content: str) -> SimpleNamespace:
