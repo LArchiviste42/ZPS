@@ -4,12 +4,15 @@ import { createFileRoute } from "@tanstack/react-router";
 
 type Mode = "structure_and_design" | "design_only" | "structure_only";
 
-type ChatTurn = { role: "user" | "assistant"; content: string; options?: string[] };
+type FieldSpec = { key: string; label: string; type: "text" | "number" | "file" | "choice"; choices?: string[] | null; placeholder?: string | null };
+
+type ChatTurn = { role: "user" | "assistant"; content: string; options?: string[]; fields?: FieldSpec[] };
 
 type ChatResponse = {
   reply: string;
   done: boolean;
   options: string[];
+  fields: FieldSpec[];
   reportJson: unknown | null;
   css: string | null;
   excluded: string[];
@@ -173,7 +176,7 @@ function BuilderPage() {
     setHistoryOpen(false);
   };
 
-  const sendText = async (raw: string) => {
+  const sendText = async (raw: string, csvOverride?: string | null) => {
     const text = raw.trim();
     if (!text || pending) return;
     const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
@@ -186,11 +189,11 @@ function BuilderPage() {
       const data = await postChat({
         mode,
         messages: historyForApi,
-        csv: csvText || null,
+        csv: csvOverride ?? csvText ?? null,
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
       });
-      setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options }]);
+      setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         await refreshHistory();
@@ -405,7 +408,7 @@ function BuilderPage() {
               csvName={csvName}
               onFile={onFile}
               onSend={send}
-              onSendText={(t) => void sendText(t)}
+              onSendText={(t, c) => void sendText(t, c ?? null)}
               status={status}
               bottomRef={bottomRef}
             />
@@ -446,7 +449,7 @@ function BuilderPage() {
           csvName={csvName}
           onFile={onFile}
           onSend={send}
-          onSendText={(t) => void sendText(t)}
+          onSendText={(t, c) => void sendText(t, c ?? null)}
           status={status}
           bottomRef={bottomRef}
         />
@@ -478,7 +481,7 @@ function ChatColumn({
   csvName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
-  onSendText: (text: string) => void;
+  onSendText: (text: string, csv?: string | null) => void;
   status: string;
   bottomRef: React.Ref<HTMLDivElement>;
 }) {
@@ -499,6 +502,9 @@ function ChatColumn({
                 </span>
               )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
+              {turn.role === "assistant" && turn.fields && turn.fields.length > 0 && (
+                <Questionnaire fields={turn.fields} disabled={pending} onSubmit={onSendText} />
+              )}
               {turn.role === "assistant" && turn.options && turn.options.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {turn.options.map((opt) => (
@@ -607,6 +613,88 @@ function DownloadJsonButton({ reportJson }: { reportJson: unknown }) {
 }
 
 /* ---------- Zai (Le Chonk), gros chaton animé ---------- */
+
+function Questionnaire({
+  fields,
+  disabled,
+  onSubmit,
+}: {
+  fields: FieldSpec[];
+  disabled: boolean;
+  onSubmit: (text: string, csv?: string | null) => void;
+}) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [csv, setCsv] = useState<{ name: string; text: string } | null>(null);
+  const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }));
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const lines = fields
+      .filter((f) => f.type !== "file")
+      .map((f) => `${f.key}: ${values[f.key] ?? ""}`)
+      .filter((l) => !l.endsWith(": "));
+    const text = lines.join("\n") || "Réponses envoyées.";
+    onSubmit(csv ? `${text}\n📎 ${csv.name}` : text, csv?.text ?? null);
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-2 flex flex-col gap-2 rounded-xl bg-white/10 p-3">
+      {fields.map((f) => (
+        <div key={f.key}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-white/70">{f.label}</label>
+          {f.type === "choice" && f.choices ? (
+            <div className="flex flex-wrap gap-1.5">
+              {f.choices.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => set(f.key, c)}
+                  className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                    values[f.key] === c
+                      ? "border-zei-mint bg-zei-mint text-zei-navy"
+                      : "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                  }`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          ) : f.type === "file" ? (
+            <label className="inline-block cursor-pointer rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 hover:bg-white/20">
+              📎 Choisir le fichier CSV
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void file.text().then((t) => setCsv({ name: file.name, text: t }));
+                }}
+              />
+            </label>
+          ) : (
+            <input
+              type={f.type === "number" ? "number" : "text"}
+              value={values[f.key] ?? ""}
+              placeholder={f.placeholder ?? ""}
+              onChange={(e) => set(f.key, e.target.value)}
+              className="w-full rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white outline-none placeholder:text-white/40 focus:border-zei-mint"
+            />
+          )}
+          {f.type === "file" && csv && <span className="ml-2 text-xs text-zei-mint">{csv.name}</span>}
+        </div>
+      ))}
+      <button
+        type="submit"
+        disabled={disabled}
+        className="self-start rounded-full bg-zei-mint px-4 py-1.5 text-xs font-bold text-zei-navy disabled:opacity-50"
+      >
+        Envoyer les réponses
+      </button>
+    </form>
+  );
+}
 
 // Pixel-art "Le Chonk" in Mistral colors (M logo gradient: yellow #FFD800 -> orange #FF8205 -> red #E10500),
 // working on a PC (JSON mode) and/or painting with a Zei-green brush (#58B896, CSS mode).

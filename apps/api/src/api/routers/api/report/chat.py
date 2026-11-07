@@ -3,6 +3,8 @@ import io
 import json
 import logging
 
+from typing import Literal
+
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -34,11 +36,21 @@ class ChatRequest(BaseModel):
     css: str | None = None
 
 
+class FieldSpec(BaseModel):
+    key: str
+    label: str
+    type: Literal["text", "number", "file", "choice"]
+    choices: list[str] | None = None
+    placeholder: str | None = None
+
+
 class ChatResponse(BaseModel):
     reply: str
     done: bool = False
     # Choix cliquables proposés à l'utilisateur quand la question est fermée (oui/non, ligne/barre…).
     options: list[str] = Field(default_factory=list)
+    # Questionnaire multi-champs quand plusieurs informations sont demandées en même temps.
+    fields: list[FieldSpec] = Field(default_factory=list)
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
     excluded: list[str] = Field(default_factory=list)
@@ -62,6 +74,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * en mode combiné, produis le CSS ET le JSON dans la même réponse (présente d'abord le CSS dans "reply", puis le JSON aussitôt après, sans attendre) ;
   * réponds avec "done": true en incluant reportJson et/ou css.
 - Quand tu poses une question fermée (oui/non ou choix unique entre plusieurs options), remplis "options" avec les choix cliquables en 1 clic, ex. ["Oui", "Non"] ou ["Ligne", "Barre"].
+- Quand tu demandes PLUSIEURS informations en même temps, ne les énumère pas en texte : remplis "fields" avec un questionnaire, un objet par champ : { "key": "organizationId", "label": "ID client (organizationId)", "type": "number", "placeholder": "ex. 49" }. Types : "text", "number", "file" (upload du CSV), "choice" (avec "choices": [...], ex. ["Oui","Non"]). Chaque champ indique le format de réponse attendu.
+- ORDRE DES DEMANDES en mode JSON : d'abord organizationId + networkId, puis le fichier CSV de la matrice réseau, puis les choix (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné, les questions CSS (nom, URL) viennent avant.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - NE DIS JAMAIS que tu vas consulter le site web toi-même : tu ne peux pas naviguer. Demande l'URL du site, puis produis le CSS directement : charte connue du client si elle est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande à l'utilisateur les codes hex / polices de la charte.
@@ -127,6 +141,17 @@ def _parse(data: dict) -> ChatResponse:
         reply=str(data.get("reply") or ""),
         done=bool(data.get("done")),
         options=[str(o) for o in (data.get("options") or [])],
+        fields=[
+            FieldSpec(
+                key=str(f.get("key") or ""),
+                label=str(f.get("label") or ""),
+                type=str(f.get("type") or "text"),
+                choices=[str(c) for c in f["choices"]] if f.get("choices") else None,
+                placeholder=f.get("placeholder"),
+            )
+            for f in (data.get("fields") or [])
+            if isinstance(f, dict) and f.get("key")
+        ],
         report_json=data.get("reportJson"),
         css=data.get("css"),
         excluded=list(data.get("excluded") or []),
