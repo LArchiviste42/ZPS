@@ -556,7 +556,7 @@ def test_fetch_site_brand_extracts_colors_and_fonts() -> None:
         def __init__(self, *a: object, **k: object) -> None:
             pass
 
-        def __enter__(self) -> "FakeClient":
+        def __enter__(self) -> "FakeClient":  # noqa: PYI034  test double
             return self
 
         def __exit__(self, *a: object) -> None:
