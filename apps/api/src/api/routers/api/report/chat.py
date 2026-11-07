@@ -95,7 +95,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Si "siteBrand.blocked" == true (vrai bot-wall constaté) : dis que le site est protégé par les bots et demande une CAPTURE D'ÉCRAN dans le chat ; ne génère pas le CSS sans.
 - Si "siteBrand.error" est présent (site non lisible depuis l'app, ex. proxy/egress) : ne dis PAS « protégé par les bots » — dis que tu n'as pas pu lire le site automatiquement et demande une capture d'écran (bouton « Ajouter un fichier »).
 - Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
-- Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth et SES polices pour les font-family — ne devine aucune autre couleur.
+- Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth (--primary = la PREMIÈRE couleur de siteBrand.colors, la plus fréquente/dominante) et SES polices (première de siteBrand.fonts en priorité, avec @import Google Fonts si c'est une webfont connue) — ne devine aucune autre couleur.
 - NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 - Ne demande JAMAIS de confirmation à l'utilisateur (« c'est bon ? », « voulez-vous que je génère ? », « puis-je commencer ? ») : dès que tu as toutes les informations requises, génère immédiatement (done=true avec le livrable). L'utilisateur peut toujours affiner ensuite en langage naturel.
@@ -151,11 +151,24 @@ def fetch_site_brand(url: str) -> dict:
                     logger.warning("stylesheet fetch failed for %s: %s", css_url, css_err)
                     continue
             title = re.search(r"<title>([^<]+)</title>", html)
+            # Dominant colors first (frequency), not alphabetical: the model picks --primary from the top.
+            from collections import Counter
+
+            color_counts = Counter(c.lower() for c in colors)
+            top_colors = [c for c, _ in color_counts.most_common(16)]
+            # Clean font list: strip !important, drop generic/icon fonts, keep distinctive families first.
+            font_counts = Counter(f.strip().rstrip("!important").strip() for f in fonts)
+            generic = ("inherit", "icons", "helvetica", "arial", "sans-serif", "serif", "monospace")
+            clean_fonts = [
+                f
+                for f, _ in font_counts.most_common(12)
+                if len(f) > 4 and not any(f.lower().startswith(g) or f.lower() == g for g in generic)
+            ]
             return {
                 "url": str(resp.url),
                 "title": title.group(1).strip() if title else "",
-                "colors": sorted({c.lower() for c in colors})[:16],
-                "fonts": sorted(set(fonts))[:10],
+                "colors": top_colors,
+                "fonts": clean_fonts,
             }
     except Exception as err:  # noqa: BLE001
         logger.warning("site brand fetch failed for %s: %s", url, err)
