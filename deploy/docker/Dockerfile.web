@@ -52,7 +52,7 @@ ARG VITE_API_URL=""
 # The app's display name (see apps/web/src/app-name.ts). The root .env that holds it is not in the
 # build context, so the build takes it as an arg; an ARG is in the environment of this stage's RUN,
 # where vite.config.ts reads it. Left empty, the app shows its default name.
-ARG APP_NAME=""
+ARG APP_NAME="ZPS - reporting builder"
 ENV NODE_ENV=production \
     VITE_API_URL=${VITE_API_URL}
 RUN bun x nx run web:build
