@@ -23,6 +23,7 @@ def complete_json(
     model: str = MODEL,
     retries: int = 2,
     fallback: bool = True,
+    image_b64: str | None = None,
 ) -> dict:
     """Call the model in JSON mode and parse its answer; retries, then automatic fallback
     to faster models, then a clean 502. The gateway proxy can answer 200 with an empty body
@@ -42,11 +43,17 @@ def complete_json(
         for model_name in models:
             for attempt in range(retries + 1):
                 try:
+                    user_content: object = user_payload
+                    if image_b64:
+                        user_content = [
+                            {"type": "text", "text": user_payload},
+                            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_b64}"}},
+                        ]
                     completion = client.chat.complete(
                         model=model_name,
                         messages=[
                             {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_payload},
+                            {"role": "user", "content": user_content},
                         ],
                         response_format={"type": "json_object"},
                         timeout_ms=25000,

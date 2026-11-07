@@ -394,3 +394,36 @@ def test_report_chat_skips_site_fetch_in_json_only_mode(client: TestClient, monk
     )
     assert res.status_code == 200
     assert called == []
+
+
+def test_report_chat_blocked_site_mentions_bot_protection(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **k: _completion({"reply": "ok ?", "done": False}))))
+    monkeypatch.setattr(chat_module, "fetch_site_brand", lambda url: {"url": url, "blocked": True, "status": 403})
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "design_only", "messages": [{"role": "user", "content": "site https://bloque.example"}]},
+    )
+    assert res.status_code == 200
+
+
+def test_report_chat_passes_screenshot_image_to_model(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    captured: list[dict] = []
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            captured.append(kwargs)
+            return _completion({"reply": "ok ?", "done": False})
+
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "design_only", "messages": [{"role": "user", "content": "voici la capture"}], "imageB64": "aGVsbG8="},
+    )
+    assert res.status_code == 200
+    content = captured[0]["messages"][1]["content"]
+    assert isinstance(content, list)
+    assert any(part.get("type") == "image_url" and "aGVsbG8=" in part["image_url"]["url"] for part in content)

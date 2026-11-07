@@ -125,9 +125,22 @@ function BuilderPage() {
   const [csvText, setCsvText] = useState("");
   const [csvName, setCsvName] = useState("");
   const [csvB64, setCsvB64] = useState("");
+  const [imgB64, setImgB64] = useState("");
 
   const readUpload = (file: File) => {
     setCsvName(file.name);
+    if (file.type.startsWith("image/")) {
+      setCsvText("");
+      setCsvB64("");
+      void file.arrayBuffer().then((buf) => {
+        let bin = "";
+        const bytes = new Uint8Array(buf);
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+        setImgB64(btoa(bin));
+      });
+      return;
+    }
+    setImgB64("");
     if (file.name.toLowerCase().endsWith(".xlsx")) {
       setCsvText("");
       void file.arrayBuffer().then((buf) => {
@@ -193,7 +206,7 @@ function BuilderPage() {
     setHistoryOpen(false);
   };
 
-  const sendText = async (raw: string, uploadOverride?: { text: string | null; b64: string | null }) => {
+  const sendText = async (raw: string, uploadOverride?: { text: string | null; b64: string | null; imgB64?: string | null }) => {
     const text = raw.trim();
     if (!text || pending) return;
     const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
@@ -208,6 +221,7 @@ function BuilderPage() {
         messages: historyForApi,
         csv: uploadOverride?.text ?? (csvText || null),
         fileB64: uploadOverride?.b64 ?? (csvB64 || null),
+        imageB64: uploadOverride?.imgB64 ?? (imgB64 || null),
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
       });
@@ -223,6 +237,7 @@ function BuilderPage() {
       setCsvText("");
       setCsvName("");
       setCsvB64("");
+      setImgB64("");
     }
   };
 
@@ -490,7 +505,7 @@ function ChatColumn({
   csvName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
-  onSendText: (text: string, upload?: { text: string | null; b64: string | null }) => void;
+  onSendText: (text: string, upload?: { text: string | null; b64: string | null; imgB64?: string | null }) => void;
   status: string;
   bottomRef: React.Ref<HTMLDivElement>;
 }) {
@@ -550,9 +565,9 @@ function ChatColumn({
         {error && <p className="text-sm font-semibold text-red-300">{error}</p>}
 
         <form onSubmit={onSend} className="flex items-center gap-2 rounded-2xl bg-white/10 p-3">
-          <label className="cursor-pointer rounded-full border border-white/25 px-3 py-2 text-xs font-bold text-white/80 hover:bg-white/20" title="Joindre le CSV/XLSX de la matrice réseau">
-            📎 CSV/XLS
-            <input type="file" accept=".csv,.xlsx,text/csv" onChange={onFile} className="hidden" />
+          <label className="cursor-pointer rounded-full border border-white/25 px-3 py-2 text-xs font-bold text-white/80 hover:bg-white/20" title="Joindre un fichier (CSV/XLSX matrice réseau, ou capture d'écran du site)">
+            📎 Fichier
+            <input type="file" accept="image/*,.csv,.xlsx,text/csv" onChange={onFile} className="hidden" />
           </label>
           {csvName && <span className="max-w-40 truncate text-xs text-zei-mint">{csvName}</span>}
           <input
@@ -630,10 +645,10 @@ function Questionnaire({
 }: {
   fields: FieldSpec[];
   disabled: boolean;
-  onSubmit: (text: string, upload?: { text: string | null; b64: string | null }) => void;
+  onSubmit: (text: string, upload?: { text: string | null; b64: string | null; imgB64?: string | null }) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [csv, setCsv] = useState<{ name: string; text: string | null; b64: string | null } | null>(null);
+  const [csv, setCsv] = useState<{ name: string; text: string | null; b64: string | null; imgB64?: string | null } | null>(null);
   const set = (key: string, v: string) => setValues((prev) => ({ ...prev, [key]: v }));
 
   const submit = (e: FormEvent) => {
@@ -643,7 +658,7 @@ function Questionnaire({
       .map((f) => `${f.key}: ${values[f.key] ?? ""}`)
       .filter((l) => !l.endsWith(": "));
     const text = lines.join("\n") || "Réponses envoyées.";
-    onSubmit(csv ? `${text}\n📎 ${csv.name}` : text, csv ? { text: csv.text, b64: csv.b64 } : undefined);
+    onSubmit(csv ? `${text}\n📎 ${csv.name}` : text, csv ? { text: csv.text, b64: csv.b64, imgB64: csv.imgB64 ?? null } : undefined);
   };
 
   return (
@@ -671,14 +686,23 @@ function Questionnaire({
             </div>
           ) : f.type === "file" ? (
             <label className="inline-block cursor-pointer rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-bold text-white/80 hover:bg-white/20">
-              📎 Choisir le fichier CSV/XLSX
+              📎 Choisir un fichier (CSV/XLSX ou capture d'écran)
               <input
                 type="file"
-                accept=".csv,.xlsx,text/csv"
+                accept="image/*,.csv,.xlsx,text/csv"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
+                  if (file.type.startsWith("image/")) {
+                    void file.arrayBuffer().then((buf) => {
+                      let bin = "";
+                      const bytes = new Uint8Array(buf);
+                      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+                      setCsv({ name: file.name, text: null, b64: null, imgB64: btoa(bin) });
+                    });
+                    return;
+                  }
                   if (file.name.toLowerCase().endsWith(".xlsx")) {
                     void file.arrayBuffer().then((buf) => {
                       let bin = "";

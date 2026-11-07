@@ -37,6 +37,8 @@ class ChatRequest(BaseModel):
     csv: str | None = None
     # Fichier XLSX uploadé, encodé en base64 (les .xlsx sont des zip binaires).
     file_b64: str | None = Field(default=None, alias="fileB64")
+    # Capture d'écran du site du client (image), encodée en base64 — pour déduire le design quand le site bloque les bots.
+    image_b64: str | None = Field(default=None, alias="imageB64")
     # Livrable courant, pour les demandes de raffinement en langage naturel après génération.
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
@@ -84,6 +86,8 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - ORDRE DES DEMANDES en mode JSON : d'abord organizationId + networkId (toujours des NOMBRES : champs "type": "number"), puis le fichier CSV de la matrice réseau, puis les choix (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné, les questions CSS (nom, URL) viennent avant.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
+- Si "siteBrand.blocked" == true (site protégé contre les bots) : dis à l'utilisateur que le site est protégé par les bots et demande-lui d'envoyer une CAPTURE D'ÉCRAN de son site dans le chat ; ne génère pas le CSS sans.
+- Si une image est attachée au message utilisateur (capture d'écran du site) : analyse-la visuellement (couleurs dominantes, polices, style général, espacements) et déduis le CSS dessus pour --primary/--secondary/--tertiary/--fourth, les polices et l'agencement.
 - Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth et SES polices pour les font-family — ne devine aucune autre couleur.
 - NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
@@ -116,6 +120,8 @@ def fetch_site_brand(url: str) -> dict:
     try:
         with httpx.Client(timeout=10, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
             resp = client.get(url)
+            if resp.status_code in (401, 403, 429) or "cloudflare" in resp.text[:5000].lower() or "just a moment" in resp.text[:5000].lower():
+                return {"url": url, "blocked": True, "status": resp.status_code}
             html = resp.text[:200_000]
             colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
             fonts = re.findall(r"font-family:\s*([^;}]+)", html)
@@ -258,7 +264,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "currentReportJson": request.report_json,
         "currentCss": request.css,
     }
-    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False)
+    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64)
     response = _parse(data)
     if response.done and (response.report_json or response.css):
         # The turn that produces the deliverable is regenerated with ML4 for quality.
@@ -267,6 +273,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             json.dumps(payload, ensure_ascii=False),
             model=MODEL,
             retries=2,
+            image_b64=request.image_b64,
         )
         final_response = _parse(final)
         response.report_json = final_response.report_json
