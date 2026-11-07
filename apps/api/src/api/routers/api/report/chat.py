@@ -26,6 +26,9 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessageIn] = Field(default_factory=list)
     # Contenu texte d'un CSV de la matrice réseau uploadé par l'utilisateur.
     csv: str | None = None
+    # Livrable courant, pour les demandes de raffinement en langage naturel après génération.
+    report_json: dict | None = Field(default=None, alias="reportJson")
+    css: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -57,6 +60,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - Ne génère rien tant que les informations requises ne sont pas réunies.
 - NE DIS JAMAIS que tu vas consulter le site web toi-même : tu ne peux pas naviguer. Demande l'URL du site, puis produis le CSS directement : charte connue du client si elle est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande à l'utilisateur les codes hex / polices de la charte.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
+- RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant en conséquence et réponds done=true avec le livrable modifié. Ne recommence pas les questions.
 """
 
 _HEADER_ALIASES = {
@@ -132,6 +136,8 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "csvIndicators": indicators,
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
+        "currentReportJson": request.report_json,
+        "currentCss": request.css,
     }
     data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2)
     response = _parse(data)

@@ -157,11 +157,23 @@ function BuilderPage() {
     setPending(true);
     setError("");
     try {
-      const data = await postChat({ mode, messages: historyForApi, csv: csvText || null });
+      const data = await postChat({
+        mode,
+        messages: historyForApi,
+        csv: csvText || null,
+        reportJson: report?.reportJson ?? null,
+        css: report?.css ?? null,
+      });
       setTurns((prev) => [...prev, { role: "assistant", content: data.reply }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         await refreshHistory();
+        if (data.css) {
+          setTurns((prev) => [
+            ...prev,
+            { role: "assistant", content: "Veux-tu améliorer le design ? Décris-moi les changements en langage naturel (ex. : titres plus gros, autre couleur principale…)." },
+          ]);
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -215,7 +227,9 @@ function BuilderPage() {
       {view === "home" && (
         <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-16">
           {(() => {
-            const [main, ...rest] = MODES;
+            const [first, ...rest] = MODES;
+            if (!first) return null;
+            const main = first;
             const btnClass = "flex items-center justify-center gap-4 border text-center text-white transition hover:scale-[1.01] border-white/25 bg-white/10 hover:bg-white/20";
             return (
               <>
@@ -248,7 +262,7 @@ function BuilderPage() {
       )}
 
       {view === "chat" && (
-      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-6 py-6">
+      <div className={`mx-auto flex w-full ${report ? "max-w-6xl" : "max-w-3xl"} flex-1 flex-col gap-4 px-6 py-6`}>
         {historyOpen && (
           <aside className="rounded-2xl border border-white/20 bg-zei-navy/80 p-4">
             <h2 className="mb-2 text-sm font-bold uppercase text-white">Historique des demandes</h2>
@@ -271,8 +285,76 @@ function BuilderPage() {
           </aside>
         )}
 
-        <div className="flex flex-1 flex-col gap-3">
-          {turns.map((turn, index) => (
+        {report && (
+          <div className="grid flex-1 gap-4 lg:grid-cols-2">
+            <div className="flex flex-col gap-3">
+              <div className="overflow-hidden rounded-2xl border border-white/20 bg-white">
+                <iframe title="Aperçu du rapport" className="h-[420px] w-full" srcDoc={buildPreviewSrcDoc(report)} />
+              </div>
+              {report.css && <DownloadCssButton css={report.css} />}
+              {report.reportJson != null && <DownloadJsonButton reportJson={report.reportJson} />}
+            </div>
+            <ChatColumn
+              turns={turns}
+              pending={pending}
+              mode={mode}
+              error={error}
+              input={input}
+              setInput={setInput}
+              csvName={csvName}
+              onFile={onFile}
+              onSend={send}
+              bottomRef={bottomRef}
+            />
+          </div>
+        )}
+
+        {!report && (
+        <ChatColumn
+          turns={turns}
+          pending={pending}
+          mode={mode}
+          error={error}
+          input={input}
+          setInput={setInput}
+          csvName={csvName}
+          onFile={onFile}
+          onSend={send}
+          bottomRef={bottomRef}
+        />
+        )}
+      </div>
+      )}
+    </main>
+  );
+}
+
+function ChatColumn({
+  turns,
+  pending,
+  mode,
+  error,
+  input,
+  setInput,
+  csvName,
+  onFile,
+  onSend,
+  bottomRef,
+}: {
+  turns: ChatTurn[];
+  pending: boolean;
+  mode: Mode;
+  error: string;
+  input: string;
+  setInput: (v: string) => void;
+  csvName: string;
+  onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSend: (e: FormEvent) => void;
+  bottomRef: React.Ref<HTMLDivElement>;
+}) {
+  return (
+    <div className="flex flex-1 flex-col gap-3">
+      {turns.map((turn, index) => (
             <div
               key={index}
               className={
@@ -301,17 +383,10 @@ function BuilderPage() {
             </div>
           )}
           <div ref={bottomRef} />
-        </div>
-
-        {report && (
-          <div className="overflow-hidden rounded-2xl border border-white/20 bg-white">
-            <iframe title="Aperçu du rapport" className="h-[420px] w-full" srcDoc={buildPreviewSrcDoc(report)} />
-          </div>
-        )}
 
         {error && <p className="text-sm font-semibold text-red-300">{error}</p>}
 
-        <form onSubmit={send} className="flex items-center gap-2 rounded-2xl bg-white/10 p-3">
+        <form onSubmit={onSend} className="flex items-center gap-2 rounded-2xl bg-white/10 p-3">
           <label className="cursor-pointer rounded-full border border-white/25 px-3 py-2 text-xs font-bold text-white/80 hover:bg-white/20" title="Joindre le CSV de la matrice réseau">
             📎 CSV
             <input type="file" accept=".csv,text/csv" onChange={onFile} className="hidden" />
@@ -331,9 +406,55 @@ function BuilderPage() {
             Envoyer
           </button>
         </form>
-      </div>
-      )}
-    </main>
+    </div>
+  );
+}
+
+function DownloadCssButton({ css }: { css: string }) {
+  const [done, setDone] = useState(false);
+  const action = async () => {
+    try {
+      await navigator.clipboard.writeText(css);
+    } catch {
+      /* presse-papiers indisponible : le téléchargement suffit */
+    }
+    const url = URL.createObjectURL(new Blob([css], { type: "text/css" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rapport-zei.css";
+    a.click();
+    URL.revokeObjectURL(url);
+    setDone(true);
+    setTimeout(() => setDone(false), 2500);
+  };
+  return (
+    <button
+      type="button"
+      onClick={() => void action()}
+      className="w-full rounded-2xl bg-zei-mint px-6 py-4 text-base font-extrabold uppercase tracking-wide text-zei-navy transition hover:brightness-110"
+    >
+      {done ? "✓ Copié et téléchargé" : "⬇ Télécharger et copier-coller dans Zei"}
+    </button>
+  );
+}
+
+function DownloadJsonButton({ reportJson }: { reportJson: unknown }) {
+  const action = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify(reportJson, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "rapport-zei.json";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  return (
+    <button
+      type="button"
+      onClick={action}
+      className="w-full rounded-2xl border border-zei-mint bg-white/10 px-6 py-3 text-sm font-bold uppercase tracking-wide text-zei-mint transition hover:bg-white/20"
+    >
+      ⬇ Télécharger le JSON du rapport
+    </button>
   );
 }
 
