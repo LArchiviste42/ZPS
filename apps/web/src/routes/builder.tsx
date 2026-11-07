@@ -1,11 +1,11 @@
 import { useRef, useState } from "react";
-import type { FormEvent, ReactNode, Ref } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 
 type Mode = "structure_and_design" | "design_only" | "structure_only";
 
-type ReportResponse = {
+type Report = {
   reportJson: unknown | null;
   css: string | null;
   excluded: string[];
@@ -51,18 +51,31 @@ const MODES: { value: Mode; title: string; icon: ReactNode }[] = [
   },
 ];
 
+const cssWanted = (mode: Mode) => mode !== "structure_only";
+const jsonWanted = (mode: Mode) => mode !== "design_only";
+
+// Jeu d'indicateurs de démonstration envoyé au builder quand l'utilisateur n'en fournit pas.
+const DEMO_INDICATORS = [
+  { theme: "Environnement", subTheme: "ESRS E1 — Énergie et émissions", category: "Énergie", name: "Consommation totale d'énergie", type: "Nombre", parentId: 412225 },
+  { theme: "Environnement", subTheme: "ESRS E1 — Énergie et émissions", category: "Émissions", name: "Émissions GES scopes 1 & 2", type: "Nombre", parentId: 412226 },
+  { theme: "Environnement", subTheme: "ESRS E5 — Économie circulaire", category: "Déchets", name: "Déchets non dangereux", type: "Nombre", parentId: 412230 },
+  { theme: "Social", subTheme: "ESRS S1 — Personnel", category: "Diversité", name: "Part de femmes cadres", type: "Pourcentage", parentId: 412240 },
+  { theme: "Social", subTheme: "ESRS S1 — Personnel", category: "Santé-sécurité", name: "Accidents du travail", type: "Nombre", parentId: 412241 },
+  { theme: "Gouvernance", subTheme: "ESRS G1 — Conduite des affaires", category: "Éthique", name: "Politique anticorruption", type: "Narratif", parentId: 412250, flag: undefined },
+];
+
 export const Route = createFileRoute("/builder")({
   staticData: { landing: true },
   component: BuilderPage,
 });
 
-async function postReport(payload: Record<string, unknown>): Promise<ReportResponse> {
-  const res = await fetch("/api/report", {
+async function postJson(url: string, payload: Record<string, unknown>): Promise<Report> {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  const data = (await res.json()) as ReportResponse & { detail?: unknown };
+  const data = (await res.json()) as Report & { detail?: unknown };
   if (!res.ok) {
     const detail = data.detail;
     throw new Error(typeof detail === "string" ? detail : "La génération a échoué.");
@@ -76,28 +89,28 @@ const labelClass = "mb-1 block text-xs font-semibold uppercase tracking-wide tex
 
 function BuilderPage() {
   const [mode, setMode] = useState<Mode | null>(null);
+  const [report, setReport] = useState<Report | null>(null);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
-  const chatRef = useRef<HTMLElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
 
   const pickMode = (value: Mode) => {
     setMode(value);
+    setReport(null);
     setTurns([]);
-    setTimeout(() => chatRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    setTimeout(() => workspaceRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   const generate = useMutation({
-    mutationFn: (payload: Record<string, unknown>) => postReport(payload),
+    mutationFn: (payload: Record<string, unknown>) => postJson("/api/report", payload),
+    onSuccess: (data) => setReport(data),
+  });
+
+  const refine = useMutation({
+    mutationFn: (payload: Record<string, unknown>) => postJson("/api/report/refine", payload),
     onSuccess: (data, payload) => {
-      const label = MODES.find((m) => m.value === payload.mode)?.title ?? "Rapport";
-      const parts: string[] = [];
-      if (data.reportJson != null) parts.push("```json\n" + JSON.stringify(data.reportJson, null, 2) + "\n```");
-      if (data.css != null) parts.push("```css\n" + data.css + "\n```");
-      if (data.excluded.length > 0) parts.push(`Indicateurs NA/NM exclus : ${data.excluded.join(", ")}`);
-      if (data.notes) parts.push(data.notes);
-      setTurns((prev) => [
-        ...prev,
-        { role: "assistant", content: `**${label}** — livrable généré :\n\n${parts.join("\n\n")}` },
-      ]);
+      setReport(data);
+      setTurns((prev) => [...prev, { role: "assistant", content: data.notes || "Livrable mis à jour." }]);
+      void payload;
     },
     onError: (error) => {
       setTurns((prev) => [...prev, { role: "assistant", content: `Erreur : ${error.message}` }]);
@@ -105,44 +118,43 @@ function BuilderPage() {
   });
 
   return (
-    <main className="zei-animated-bg flex min-h-full flex-col">
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-8 px-6 py-16 text-center">
-        <img src="/logo-zei-white.svg" alt="Zei" className="h-14 w-auto" />
-        <div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
-            Reporting Builder by Zei
-          </h1>
-          <p className="mt-2 text-sm font-semibold text-zei-mint">by Zei Professionnal Services</p>
-        </div>
-
-        <div className="flex w-full flex-col gap-4">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              onClick={() => pickMode(m.value)}
-              className={`flex w-full items-center gap-4 rounded-2xl border px-6 py-5 text-left transition hover:scale-[1.01] ${
-                mode === m.value
-                  ? "border-zei-mint bg-white/20 ring-2 ring-zei-mint"
-                  : "border-white/25 bg-white/10 hover:bg-white/20"
-              }`}
-            >
-              <span className="text-zei-mint">{m.icon}</span>
-              <span className="text-lg font-bold text-white">{m.title}</span>
-            </button>
-          ))}
-        </div>
+    <main className="zei-animated-bg min-h-full">
+      <section className="mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center gap-4 px-6 py-16">
+        {MODES.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            onClick={() => pickMode(m.value)}
+            className={`flex w-full items-center gap-4 rounded-2xl border px-6 py-5 text-left transition hover:scale-[1.01] ${
+              mode === m.value
+                ? "border-zei-mint bg-white/20 ring-2 ring-zei-mint"
+                : "border-white/25 bg-white/10 hover:bg-white/20"
+            }`}
+          >
+            <span className="shrink-0 text-zei-mint">{m.icon}</span>
+            <span className="text-lg font-bold text-white">{m.title}</span>
+          </button>
+        ))}
       </section>
 
       {mode && (
-        <ChatSection
-          ref={chatRef}
+        <Workspace
           mode={mode}
+          report={report}
           turns={turns}
-          pending={generate.isPending}
-          onSubmit={(payload, summary) => {
-            setTurns((prev) => [...prev, { role: "user", content: summary }]);
-            generate.mutate(payload);
+          generating={generate.isPending}
+          refining={refine.isPending}
+          genError={generate.isError ? generate.error.message : ""}
+          workspaceRef={workspaceRef}
+          onGenerate={(payload) => generate.mutate(payload)}
+          onRefine={(instruction) => {
+            setTurns((prev) => [...prev, { role: "user", content: instruction }]);
+            refine.mutate({
+              mode,
+              instruction,
+              reportJson: report?.reportJson ?? null,
+              css: report?.css ?? null,
+            });
           }}
         />
       )}
@@ -150,156 +162,246 @@ function BuilderPage() {
   );
 }
 
-const ChatSection = ({
+function Workspace({
   mode,
+  report,
   turns,
-  pending,
-  onSubmit,
-  chatRef,
+  generating,
+  refining,
+  genError,
+  workspaceRef,
+  onGenerate,
+  onRefine,
 }: {
   mode: Mode;
+  report: Report | null;
   turns: ChatTurn[];
-  pending: boolean;
-  onSubmit: (payload: Record<string, unknown>, summary: string) => void;
-  chatRef: Ref<HTMLElement>;
-}) => {
+  generating: boolean;
+  refining: boolean;
+  genError: string;
+  workspaceRef: React.Ref<HTMLElement>;
+  onGenerate: (payload: Record<string, unknown>) => void;
+  onRefine: (instruction: string) => void;
+}) {
   const [clientName, setClientName] = useState("");
-  const [clientUrl, setClientUrl] = useState("");
   const [organizationId, setOrganizationId] = useState("");
   const [networkId, setNetworkId] = useState("");
-  const [exerciceId, setExerciceId] = useState("");
-  const [yearN, setYearN] = useState("2026");
-  const [yearNMinus1, setYearNMinus1] = useState("2025");
+  const [clientUrl, setClientUrl] = useState("");
   const [pastExercices, setPastExercices] = useState("5");
-  const [indicatorsText, setIndicatorsText] = useState("");
-  const [formError, setFormError] = useState("");
+  const [instruction, setInstruction] = useState("");
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    setFormError("");
-
-    let indicators: unknown[] = [];
-    if (mode !== "design_only") {
-      try {
-        const parsed = JSON.parse(indicatorsText || "[]");
-        if (!Array.isArray(parsed)) throw new Error("Le JSON doit être un tableau.");
-        if (parsed.length === 0) throw new Error("Ajoutez au moins un indicateur.");
-        indicators = parsed;
-      } catch (error) {
-        setFormError(`Indicateurs invalides : ${error instanceof Error ? error.message : String(error)}`);
-        return;
-      }
-    }
-
-    const payload = {
+    onGenerate({
       mode,
       clientName,
-      clientUrl,
+      clientUrl: cssWanted(mode) ? clientUrl : null,
       organizationId: Number(organizationId),
       networkId: Number(networkId),
-      exerciceIdNMinus1: Number(exerciceId),
-      yearN: Number(yearN),
-      yearNMinus1: Number(yearNMinus1),
       pastExercices: Number(pastExercices),
-      indicators,
-    };
-    const summary = `Client **${clientName}** (${clientUrl}) — org ${organizationId}, network ${networkId}, exercice N-1 ${exerciceId}, ${yearN}/${yearNMinus1}, ${pastExercices} exercices passés, ${indicators.length} indicateur(s). Mode : ${mode}.`;
-    onSubmit(payload, summary);
+      indicators: jsonWanted(mode) ? DEMO_INDICATORS : [],
+    });
+  };
+
+  const sendInstruction = (event: FormEvent) => {
+    event.preventDefault();
+    const text = instruction.trim();
+    if (!text || refining) return;
+    setInstruction("");
+    onRefine(text);
   };
 
   const modeTitle = MODES.find((m) => m.value === mode)?.title ?? mode;
 
   return (
-    <section ref={chatRef} className="zei-chat-bg border-t border-white/15">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-6 py-8">
+    <section ref={workspaceRef} className="zei-chat-bg border-t border-white/15">
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
         <h2 className="text-center text-xl font-bold text-white">{modeTitle}</h2>
 
-        <div className="flex flex-col gap-3">
-          {turns.length === 0 && (
-            <p className="text-center text-sm text-white/70">
-              Renseignez le contexte ci-dessous, le chat générera le livrable avec la logique du skill zei-rapport-json.
-            </p>
-          )}
-          {turns.map((turn, index) => (
-            <div
-              key={index}
-              className={
-                turn.role === "user"
-                  ? "self-end rounded-2xl rounded-br-sm bg-white/20 px-4 py-2.5 text-sm text-white"
-                  : "self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white"
-              }
-            >
-              <span className="whitespace-pre-wrap">{turn.content}</span>
-            </div>
-          ))}
-          {pending && (
-            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white/80">
-              <span className="animate-pulse">zei génère le livrable…</span>
-            </div>
-          )}
-        </div>
-
         <form onSubmit={submit} className="flex flex-col gap-3 rounded-2xl bg-white/10 p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <label className={labelClass} htmlFor="clientName">Nom du client</label>
               <input id="clientName" className={inputClass} value={clientName} onChange={(e) => setClientName(e.target.value)} placeholder="Ex. EDF" required />
             </div>
             <div>
-              <label className={labelClass} htmlFor="clientUrl">Site web du client</label>
-              <input id="clientUrl" className={inputClass} type="url" value={clientUrl} onChange={(e) => setClientUrl(e.target.value)} placeholder="https://…" required />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <label className={labelClass} htmlFor="orgId">organizationId</label>
+              <label className={labelClass} htmlFor="orgId">ID organisation</label>
               <input id="orgId" className={inputClass} type="number" value={organizationId} onChange={(e) => setOrganizationId(e.target.value)} required />
             </div>
             <div>
-              <label className={labelClass} htmlFor="netId">networkId (à chaque usage)</label>
+              <label className={labelClass} htmlFor="netId">ID réseau</label>
               <input id="netId" className={inputClass} type="number" value={networkId} onChange={(e) => setNetworkId(e.target.value)} required />
             </div>
-            <div>
-              <label className={labelClass} htmlFor="exoId">exerciceId N-1</label>
-              <input id="exoId" className={inputClass} type="number" value={exerciceId} onChange={(e) => setExerciceId(e.target.value)} required />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="yearN">Année N</label>
-              <input id="yearN" className={inputClass} type="number" value={yearN} onChange={(e) => setYearN(e.target.value)} required />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="yearNm1">Année N-1</label>
-              <input id="yearNm1" className={inputClass} type="number" value={yearNMinus1} onChange={(e) => setYearNMinus1(e.target.value)} required />
-            </div>
-            <div>
-              <label className={labelClass} htmlFor="past">Exercices passés (charts)</label>
-              <input id="past" className={inputClass} type="number" min={1} max={20} value={pastExercices} onChange={(e) => setPastExercices(e.target.value)} required />
-            </div>
           </div>
-          {mode !== "design_only" && (
-            <div>
-              <label className={labelClass} htmlFor="indicators">Indicateurs (tableau JSON)</label>
-              <textarea
-                id="indicators"
-                rows={5}
-                className={`${inputClass} font-mono`}
-                value={indicatorsText}
-                onChange={(e) => setIndicatorsText(e.target.value)}
-                placeholder='[{"theme":"Environnement","subTheme":"GES","category":"Scope 1","name":"Émissions GES","type":"Nombre","parentId":412225}]'
-                required
-              />
-            </div>
-          )}
-          {formError && <p className="text-sm font-semibold text-red-300">{formError}</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {cssWanted(mode) && (
+              <div>
+                <label className={labelClass} htmlFor="clientUrl">URL du client (pour la charte)</label>
+                <input id="clientUrl" className={inputClass} type="url" value={clientUrl} onChange={(e) => setClientUrl(e.target.value)} placeholder="https://…" required />
+              </div>
+            )}
+            {jsonWanted(mode) && (
+              <div>
+                <label className={labelClass} htmlFor="past">Nombre d'exercices passés (charts)</label>
+                <input id="past" className={inputClass} type="number" min={1} max={20} value={pastExercices} onChange={(e) => setPastExercices(e.target.value)} required />
+              </div>
+            )}
+          </div>
+          {genError && <p className="text-sm font-semibold text-red-300">{genError}</p>}
           <button
             type="submit"
-            disabled={pending}
+            disabled={generating}
             className="self-start rounded-full bg-zei-mint px-6 py-2.5 text-sm font-bold text-zei-navy transition hover:brightness-110 disabled:opacity-50"
           >
-            {pending ? "Génération…" : "Envoyer au chat"}
+            {generating ? "Génération…" : "Générer"}
           </button>
         </form>
+
+        {report && (
+          <>
+            <div className="overflow-hidden rounded-2xl border border-white/20 bg-white">
+              <iframe
+                title="Aperçu du rapport"
+                className="h-[480px] w-full"
+                srcDoc={buildPreviewSrcDoc(report, mode)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-white/80">
+                Améliorer le rapport en langage naturel
+              </h3>
+              {turns.map((turn, index) => (
+                <div
+                  key={index}
+                  className={
+                    turn.role === "user"
+                      ? "self-end rounded-2xl rounded-br-sm bg-white/20 px-4 py-2.5 text-sm text-white"
+                      : "self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white"
+                  }
+                >
+                  <span className="whitespace-pre-wrap">{turn.content}</span>
+                </div>
+              ))}
+              {refining && (
+                <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white/80">
+                  <span className="animate-pulse">zei applique la modification…</span>
+                </div>
+              )}
+              <form onSubmit={sendInstruction} className="flex gap-2">
+                <input
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  placeholder="Ex. : rends les titres plus gros, ajoute un chart sur l'eau…"
+                  className="flex-1 rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/50 focus:border-zei-mint focus:ring-2 focus:ring-zei-mint/40"
+                />
+                <button
+                  type="submit"
+                  disabled={refining || instruction.trim() === ""}
+                  className="rounded-full bg-zei-mint px-5 py-2.5 text-sm font-bold text-zei-navy transition hover:brightness-110 disabled:opacity-50"
+                >
+                  Envoyer
+                </button>
+              </form>
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
-};
+}
+
+/* ---------- Aperçu du rapport (données fictives) ---------- */
+
+const DEFAULT_CSS = `:root{--primary:#262882;--secondary:#3c3c3b;--tertiary:#58b896;--fourth:rgba(88,184,150,0.18);}
+body{font-family:'Poppins',Arial,sans-serif;font-size:14px;color:var(--secondary);padding:24px;}
+h1{color:var(--primary);font-size:32px;font-weight:700;} h2{color:var(--primary);font-size:24px;font-weight:600;margin-top:24px;margin-bottom:12px;padding-bottom:6px;border-bottom:3px solid var(--tertiary);} h3{color:var(--secondary);font-size:20px;font-weight:600;margin-top:14px;}
+a{color:var(--primary);} table{background-color:var(--fourth);font-size:small;width:100%;table-layout:fixed;} thead{background-color:var(--primary);} thead tr th, thead tr th *{color:#fff;font-weight:600;}`;
+
+function hashOf(text: string): number {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+const esc = (s: unknown) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+
+function fakeValue(id: string): number {
+  return 40 + (hashOf(String(id)) % 960);
+}
+
+function renderChart(data: any, pastExercices: number, yearN: number): string {
+  const indicators: any[] = data?.chart?.indicators ?? [];
+  const width = 640;
+  const height = 240;
+  const pad = 32;
+  const years: number[] = [];
+  for (let i = pastExercices; i >= 0; i--) years.push(yearN - i);
+  const series = indicators.map((ind) => {
+    const base = fakeValue(String(ind.indicatorId));
+    return years.map((y, i) => ({ x: pad + (i * (width - 2 * pad)) / Math.max(years.length - 1, 1), y: height - pad - ((base + i * 37) % 180), year: y, v: base + i * 13 }));
+  });
+  const polylines = series
+    .map((pts, idx) => {
+      const color = ["#262882", "#4347e8", "#58b896"][idx % 3];
+      return `<polyline fill="none" stroke="${color}" stroke-width="2.5" points="${pts.map((p) => `${p.x},${p.y}`).join(" ")}" />`;
+    })
+    .join("");
+  const xLabels = years
+    .map((y, i) => `<text x="${pad + (i * (width - 2 * pad)) / Math.max(years.length - 1, 1)}" y="${height - 8}" font-size="11" text-anchor="middle" fill="#3c3c3b">${y}</text>`)
+    .join("");
+  const legend = indicators
+    .map((ind, idx) => `<span style="margin-right:12px;color:${["#262882", "#4347e8", "#58b896"][idx % 3]}">● indicateur ${esc(ind.indicatorId)}</span>`)
+    .join("");
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;background:rgba(88,184,150,0.08);border-radius:12px">${polylines}${xLabels}<text x="${pad}" y="16" font-size="11" fill="#3c3c3b">${legend}</text></svg>`;
+}
+
+function renderTable(data: any, yearN: number): string {
+  const columns: any[] = data?.table?.columns ?? [];
+  const ids: string[] = data?.table?.indicatorIds ?? [];
+  const head = columns.map((c) => `<th>${esc(c.label ?? c.type)}</th>`).join("");
+  const rows = ids
+    .map((id) => {
+      const vN = fakeValue(id);
+      const vNm1 = fakeValue(id + ":n1");
+      const prog = vNm1 ? (((vN - vNm1) / vNm1) * 100).toFixed(1) + " %" : "—";
+      const cells = columns.map((c) => {
+        if (c.type === "IndicatorName") return `<td>Indicateur ${esc(id)}</td>`;
+        if (c.type === "LastValue") return `<td>${vN.toLocaleString("fr-FR")}</td>`;
+        if (c.type === "YearXValue") return `<td>${vNm1.toLocaleString("fr-FR")}</td>`;
+        if (c.type === "Progression") return `<td>${prog}</td>`;
+        return "<td></td>";
+      });
+      return `<tr>${cells.join("")}</tr>`;
+    })
+    .join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function renderBlocks(reportJson: any, pastExercices: number, yearN: number): string {
+  const blocks: any[] = Array.isArray(reportJson?.blocks) ? reportJson.blocks : [];
+  if (blocks.length === 0) {
+    return `<h1>Rapport de durabilité ${yearN}</h1><p>Données de démonstration — structure générée par le reporting builder.</p>`;
+  }
+  return blocks
+    .map((b) => {
+      if (b.type === "header") {
+        const level = Math.min(Math.max(Number(b.data?.level) || 2, 1), 4);
+        return `<h${level}>${esc(b.data?.text)}</h${level}>`;
+      }
+      if (b.type === "chart") return renderChart(b.data, pastExercices, yearN);
+      if (b.type === "table") return renderTable(b.data, yearN);
+      if (b.type === "text_indicators")
+        return `<p>Donnée narrative de démonstration pour l'indicateur ${esc(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? "")} — contenu généré à partir de la matrice réseau du client.</p>`;
+      return "";
+    })
+    .join("\n");
+}
+
+function buildPreviewSrcDoc(report: Report, mode: Mode): string {
+  const css = report.css ?? DEFAULT_CSS;
+  const yearN = new Date().getFullYear();
+  const pastExercices = 5;
+  const body = renderBlocks(report.reportJson, pastExercices, yearN);
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${body}</body></html>`;
+}

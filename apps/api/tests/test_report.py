@@ -135,3 +135,61 @@ def test_report_rejects_missing_ids(client: TestClient) -> None:
     del payload["networkId"]
     res = client.post("/api/report", json=payload)
     assert res.status_code == 422
+
+
+def test_report_structure_only_works_without_client_url(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        report_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(
+            chat=SimpleNamespace(complete=lambda **kwargs: _completion({"reportJson": {"blocks": []}}))
+        ),
+    )
+    payload = _payload(mode="structure_only")
+    del payload["clientUrl"]
+    res = client.post("/api/report", json=payload)
+    assert res.status_code == 200
+    assert res.json()["reportJson"] == {"blocks": []}
+
+
+def test_report_design_requires_client_url(client: TestClient) -> None:
+    payload = _payload(mode="design_only", indicators=[])
+    del payload["clientUrl"]
+    res = client.post("/api/report", json=payload)
+    assert res.status_code == 422
+
+
+def test_report_refine_returns_updated_livrables(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from api.routers.api.report import refine as refine_route
+
+    calls: list[dict] = []
+    updated = {"reportJson": {"blocks": [{"type": "header"}]}, "css": ":root{--primary:#000}", "notes": "couleur changée"}
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            calls.append(kwargs)
+            return _completion(updated)
+
+    monkeypatch.setattr(refine_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+
+    res = client.post(
+        "/api/report/refine",
+        json={
+            "mode": "structure_and_design",
+            "instruction": "Mets le bleu EDF en #07387a et ajoute un chart GES",
+            "clientName": "EDF",
+            "clientUrl": "https://www.edf.fr",
+            "organizationId": 293168,
+            "networkId": 2120,
+            "reportJson": {"blocks": []},
+            "css": "body{}",
+        },
+    )
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["reportJson"] == {"blocks": [{"type": "header"}]}
+    assert body["css"] == ":root{--primary:#000}"
+    assert body["notes"] == "couleur changée"
+    assert calls[0]["model"] == "mistral-large-4"
+    assert "RAFFINEMENT" in calls[0]["messages"][0]["content"]

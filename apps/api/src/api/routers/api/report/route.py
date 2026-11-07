@@ -3,7 +3,7 @@ from typing import Literal
 
 from fastapi import APIRouter
 from mistralai.client.models import ChatCompletionResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from utils.mistral import caller_mistral_client
 
 MODEL = "mistral-large-4"
@@ -28,17 +28,25 @@ class IndicatorInput(BaseModel):
 class ReportRequest(BaseModel):
     mode: Mode
     client_name: str = Field(min_length=1, alias="clientName")
-    client_url: str = Field(min_length=1, alias="clientUrl")
+    # Requis uniquement quand le livrable inclut le CSS (charte du client).
+    client_url: str | None = Field(default=None, alias="clientUrl")
     organization_id: int = Field(alias="organizationId")
     network_id: int = Field(alias="networkId")
-    exercice_id_n_minus_1: int = Field(alias="exerciceIdNMinus1")
-    year_n: int = Field(alias="yearN")
-    year_n_minus_1: int = Field(alias="yearNMinus1")
-    past_exercices: int = Field(alias="pastExercices", ge=1, le=20)
+    # Requis uniquement quand le livrable inclut le JSON (colonne Progression).
+    exercice_id_n_minus_1: int | None = Field(default=None, alias="exerciceIdNMinus1")
+    year_n: int = Field(default=2026, alias="yearN")
+    year_n_minus_1: int = Field(default=2025, alias="yearNMinus1")
+    past_exercices: int = Field(default=5, alias="pastExercices", ge=1, le=20)
     locale: str = "fr"
     indicators: list[IndicatorInput] = Field(default_factory=list)
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="after")
+    def _required_by_mode(self) -> "ReportRequest":
+        if self.mode != "structure_only" and not self.client_url:
+            raise ValueError("clientUrl est requis quand le CSS est demandé")
+        return self
 
 
 class ReportResponse(BaseModel):
@@ -104,6 +112,7 @@ def _user_prompt(request: ReportRequest) -> str:
         "locale": request.locale,
         "indicators": indicators,
     }
+
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
