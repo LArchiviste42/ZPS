@@ -635,9 +635,13 @@ const DEMO_REPORT = {
   time: 1762500000000,
   version: "2.30.5",
   blocks: [
+    { id: "demoToc", type: "table_of_content", data: { tableOfContent: { title: "Sommaire", level: 4 } } },
+    { type: "pageBreak", data: {} },
     { type: "header", data: { text: "Rapport de durabilité 2026 — Module Énergie (démonstration)", level: 1 } },
+    { type: "pageBreak", data: {} },
     { type: "header", data: { text: "ESRS E1 — Changement climatique", level: 2 } },
     { type: "text_indicators", data: { organizationId: 49, networkId: 727, locale: "fr", textIndicators: { indicators: [{ type: "LastValue", indicatorId: 48261 }] } } },
+    { type: "pageBreak", data: {} },
     { type: "header", data: { text: "Non renouvelable", level: 2 } },
     { type: "header", data: { text: "Électricité", level: 3 } },
     { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48228 }, { type: "IndicatorValue", indicatorId: 48229 }] } } },
@@ -652,11 +656,13 @@ const DEMO_REPORT = {
     { type: "table", id: "demoT4", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48253", "48237"] } } },
     { type: "header", data: { text: "Sous-total non renouvelable", level: 3 } },
     { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48242 }, { type: "IndicatorValue", indicatorId: 48241 }] } } },
+    { type: "pageBreak", data: {} },
     { type: "header", data: { text: "Renouvelable", level: 2 } },
     { type: "header", data: { text: "Énergie renouvelable autoproduite", level: 3 } },
     { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48249 }] } } },
     { type: "header", data: { text: "Réseaux de chaleur et de froid / Vapeur", level: 3 } },
     { type: "table", id: "demoT5", data: { organizationId: 49, locale: "fr", networkId: 727, table: { columns: [ { type: "IndicatorName", label: "Indicator" }, { type: "LastValue", label: "2026" }, { type: "YearXValue", label: "2025", year: 2025 }, { type: "Progression", progression: { type: "percent", column1: { type: "ExerciceXValue", exerciceId: 2854 }, column2: { type: "LastValue" } } } ], indicatorIds: ["48244", "48245", "48246", "48243"] } } },
+    { type: "pageBreak", data: {} },
     { type: "header", data: { text: "Total", level: 2 } },
     { type: "header", data: { text: "Consommation totale d'énergie", level: 3 } },
     { type: "chart", data: { organizationId: 49, networkId: 727, locale: "fr", chart: { chartType: "line", xAxis: { label: "date", type: "Exercice", relativeStart: { minusX: 6 }, relativeEnd: { minusX: 1 } }, indicators: [{ type: "IndicatorValue", indicatorId: 48230 }, { type: "IndicatorValue", indicatorId: 48250 }, { type: "IndicatorValue", indicatorId: 48253 }] } } },
@@ -690,26 +696,48 @@ function fakeValue(id: string): number {
 }
 
 function renderChart(data: any): string {
-  const indicators: any[] = data?.chart?.indicators ?? [];
+  const chart = data?.chart ?? {};
+  const indicators: any[] = chart.indicators ?? [];
+  const isBar = chart.chartType === "bar";
   const width = 640;
   const height = 240;
   const pad = 32;
   const yearN = new Date().getFullYear();
   const years: number[] = [];
   for (let i = 5; i >= 0; i--) years.push(yearN - i);
-  const series = indicators.map((ind) => {
-    const base = fakeValue(String(ind.indicatorId));
-    return years.map((y, i) => ({ x: pad + (i * (width - 2 * pad)) / Math.max(years.length - 1, 1), y: height - pad - ((base + i * 37) % 180), year: y }));
-  });
   const colors = ["#262882", "#4347e8", "#58b896"];
-  const polylines = series
-    .map((pts, idx) => `<polyline fill="none" stroke="${colors[idx % 3]}" stroke-width="2.5" points="${pts.map((p) => `${p.x},${p.y}`).join(" ")}" />`)
-    .join("");
+  const xFor = (i: number) => pad + (i * (width - 2 * pad)) / Math.max(years.length - 1, 1);
+  let marks = "";
+  if (isBar) {
+    const groupW = (width - 2 * pad) / years.length;
+    const barW = Math.max(groupW / (indicators.length + 1), 4);
+    indicators.forEach((ind, idx) => {
+      const base = fakeValue(String(ind.indicatorId));
+      years.forEach((_y, i) => {
+        const v = (base + i * 37) % 180;
+        marks += `<rect x="${xFor(i) + idx * barW}" y="${height - pad - v}" width="${barW - 1}" height="${v}" fill="${colors[idx % 3]}" />`;
+      });
+    });
+  } else {
+    indicators.forEach((ind, idx) => {
+      const base = fakeValue(String(ind.indicatorId));
+      const pts = years.map((y, i) => ({ x: xFor(i), y: height - pad - ((base + i * 37) % 180) }));
+      marks += `<polyline fill="none" stroke="${colors[idx % 3]}" stroke-width="2.5" points="${pts.map((p) => `${p.x},${p.y}`).join(" ")}" />`;
+    });
+  }
   const xLabels = years
-    .map((y, i) => `<text x="${pad + (i * (width - 2 * pad)) / Math.max(years.length - 1, 1)}" y="${height - 8}" font-size="11" text-anchor="middle" fill="#3c3c3b">${y}</text>`)
+    .map((y, i) => `<text x="${xFor(i)}" y="${height - 8}" font-size="11" text-anchor="middle" fill="#3c3c3b">${y}</text>`)
     .join("");
   const legend = indicators.map((ind, idx) => `<span style="margin-right:12px;color:${colors[idx % 3]}">● indicateur ${esc(ind.indicatorId)}</span>`).join("");
-  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;background:rgba(88,184,150,0.08);border-radius:12px">${polylines}${xLabels}<text x="${pad}" y="16" font-size="11" fill="#3c3c3b">${legend}</text></svg>`;
+  return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;background:rgba(88,184,150,0.08);border-radius:12px">${marks}${xLabels}<text x="${pad}" y="16" font-size="11" fill="#3c3c3b">${legend}</text></svg>`;
+}
+
+function renderTableOfContent(blocks: any[]): string {
+  const titles = blocks
+    .filter((b) => b.type === "header" && Number(b.data?.level) <= 2)
+    .map((b) => `<li style="margin:2px 0">${esc(b.data?.text)}</li>`)
+    .join("");
+  return `<div style="border:1px solid rgba(60,60,59,0.2);border-radius:12px;padding:12px 16px;background:rgba(88,184,150,0.08)"><h4 style="margin:0 0 8px;font-size:16px">Sommaire</h4><ul style="margin:0;padding-left:18px;font-size:13px">${titles}</ul></div>`;
 }
 
 function renderTable(data: any): string {
@@ -742,6 +770,8 @@ function renderBlocks(reportJson: any): string {
         const level = Math.min(Math.max(Number(b.data?.level) || 2, 1), 4);
         return `<h${level}>${esc(b.data?.text)}</h${level}>`;
       }
+      if (b.type === "pageBreak") return `<div style="border-top:2px dashed #9a9a9a;margin:28px 0;text-align:center;font-size:10px;color:#9a9a9a">— saut de page —</div>`;
+      if (b.type === "table_of_content") return renderTableOfContent(blocks);
       if (b.type === "chart") return renderChart(b.data);
       if (b.type === "table") return renderTable(b.data);
       if (b.type === "text_indicators")
