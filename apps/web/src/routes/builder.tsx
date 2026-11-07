@@ -225,8 +225,11 @@ function BuilderPage() {
     setHistoryOpen(false);
   };
 
+  const CHONK_IMPROVE = "Améliore le design : propose des améliorations du CSS dans les limites du contrat CSS Zei (variables :root, sélecteurs du contrat, @import en tête de fichier, contrastes, zébrage, liens lisibles sans survol), pour un rendu le plus professionnel possible.";
+
   const sendText = async (raw: string, uploadOverride?: { text: string | null; b64: string | null; imgB64?: string | null }) => {
-    const text = raw.trim();
+    let text = raw.trim();
+    if (/^\s*(oui|yes)\b/i.test(text) && refining && report?.css) text = CHONK_IMPROVE;
     if (!text || pending) return;
     const userTurn: ChatTurn = { role: "user", content: csvName ? `${text} 📎 ${csvName}` : text };
     const historyForApi = [...turns, userTurn].map((t) => ({ role: t.role, content: t.content }));
@@ -519,9 +522,7 @@ function BuilderPage() {
                     type="button"
                     disabled={pending}
                     onClick={() =>
-                      void sendText(
-                        "Améliore le design : propose des améliorations du CSS dans les limites du contrat CSS Zei (variables :root, sélecteurs du contrat, @import en tête de fichier, contrastes, zébrage, liens lisibles sans survol), pour un rendu le plus professionnel possible.",
-                      )
+                      void sendText(CHONK_IMPROVE)
                     }
                     title="Laisser ML4 améliorer le design"
                     className="absolute left-2 top-2 rounded-full px-3 py-1.5 text-xs font-extrabold text-[#262882] shadow transition hover:brightness-110 disabled:opacity-50"
