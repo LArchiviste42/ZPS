@@ -126,12 +126,15 @@ function BuilderPage() {
   const [csvName, setCsvName] = useState("");
   const [csvB64, setCsvB64] = useState("");
   const [imgB64, setImgB64] = useState("");
+  const [imgName, setImgName] = useState("");
+  const [isDragging, setIsDragging] = useState(false);
 
   const readUpload = (file: File) => {
     setCsvName(file.name);
     if (file.type.startsWith("image/")) {
       setCsvText("");
       setCsvB64("");
+      setImgName(file.name);
       void file.arrayBuffer().then((buf) => {
         let bin = "";
         const bytes = new Uint8Array(buf);
@@ -141,6 +144,7 @@ function BuilderPage() {
       return;
     }
     setImgB64("");
+    setImgName("");
     if (file.name.toLowerCase().endsWith(".xlsx")) {
       setCsvText("");
       void file.arrayBuffer().then((buf) => {
@@ -238,6 +242,7 @@ function BuilderPage() {
       setCsvName("");
       setCsvB64("");
       setImgB64("");
+      setImgName("");
     }
   };
 
@@ -247,6 +252,21 @@ function BuilderPage() {
     if (!report?.reportJson) return "analyse de la matrice réseau et rédaction du JSON…";
     return "lecture du site du client et génération du CSS…";
   })();
+
+  const handleFiles = (files: FileList | File[]) => {
+    const f = files[0];
+    if (f) readUpload(f);
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const item = [...e.clipboardData.items].find((i) => i.type.startsWith("image/"));
+    if (!item) return;
+    const file = item.getAsFile();
+    if (file) {
+      e.preventDefault();
+      readUpload(file);
+    }
+  };
 
   const send = (event: FormEvent) => {
     event.preventDefault();
@@ -333,7 +353,20 @@ function BuilderPage() {
       )}
 
       {view === "chat" && (
-      <div className={`mx-auto flex w-full ${report ? "max-w-none px-2" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6`}>
+      <div
+        className={`mx-auto flex w-full ${report ? "max-w-none px-2" : "max-w-3xl px-6"} flex-1 flex-col gap-4 py-6 rounded-2xl transition ${isDragging ? "ring-2 ring-zei-mint bg-white/5" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setIsDragging(true);
+        }}
+        onDragLeave={() => setIsDragging(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setIsDragging(false);
+          handleFiles(e.dataTransfer.files);
+        }}
+        onPaste={handlePaste}
+      >
         {historyOpen && (
           <aside className="fixed inset-y-0 right-0 z-20 flex w-80 max-w-full flex-col gap-3 border-l border-white/15 bg-zei-navy/95 p-4 shadow-2xl backdrop-blur">
             <div className="flex items-center justify-between">
@@ -430,6 +463,8 @@ function BuilderPage() {
               input={input}
               setInput={setInput}
               csvName={csvName}
+          imgName={imgName}
+              imgName={imgName}
               onFile={onFile}
               onSend={send}
               onSendText={(t, u) => void sendText(t, u)}
@@ -471,6 +506,7 @@ function BuilderPage() {
           input={input}
           setInput={setInput}
           csvName={csvName}
+          imgName={imgName}
           onFile={onFile}
           onSend={send}
           onSendText={(t, u) => void sendText(t, u)}
@@ -491,6 +527,7 @@ function ChatColumn({
   input,
   setInput,
   csvName,
+  imgName,
   onFile,
   onSend,
   onSendText,
@@ -503,6 +540,7 @@ function ChatColumn({
   input: string;
   setInput: (v: string) => void;
   csvName: string;
+  imgName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
   onSendText: (text: string, upload?: { text: string | null; b64: string | null; imgB64?: string | null }) => void;
@@ -569,11 +607,12 @@ function ChatColumn({
             📎 Fichier
             <input type="file" accept="image/*,.csv,.xlsx,text/csv" onChange={onFile} className="hidden" />
           </label>
-          {csvName && <span className="max-w-40 truncate text-xs text-zei-mint">{csvName}</span>}
+          {csvName && <span className="max-w-40 truncate text-xs text-zei-mint">📎 {csvName}</span>}
+          {imgName && <span className="max-w-40 truncate text-xs text-zei-mint">🖼 {imgName}</span>}
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Répondez au chat…"
+            placeholder="Répondez au chat… (glissez-déposez ou collez une image ici)"
             className="flex-1 rounded-full border border-white/25 bg-white/10 px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/50 focus:border-zei-mint focus:ring-2 focus:ring-zei-mint/40"
           />
           <button
