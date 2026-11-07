@@ -59,6 +59,8 @@ class ChatResponse(BaseModel):
     options: list[str] = Field(default_factory=list)
     # Questionnaire multi-champs quand plusieurs informations sont demandées en même temps.
     fields: list[FieldSpec] = Field(default_factory=list)
+    # True quand le prochain attendu est un FICHIER (matrice CSV/XLSX ou capture d'écran).
+    awaiting_file: bool = Field(default=False, alias="awaitingFile")
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
     excluded: list[str] = Field(default_factory=list)
@@ -82,6 +84,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
   * en mode combiné (JSON & CSS) : JAMAIS les deux en même temps — d'abord le JSON (phase 1), puis le CSS en phase 2 après confirmation de l'utilisateur ;
   * réponds avec "done": true en incluant reportJson et/ou css.
 - Quand tu poses une question fermée (oui/non ou choix unique entre plusieurs options), remplis "options" avec les choix cliquables en 1 clic, ex. ["Oui", "Non"] ou ["Ligne", "Barre"].
+- Quand le prochain élément attendu est un FICHIER (export matrice réseau CSV/XLSX, ou capture d'écran du site), mets "awaitingFile": true (le bouton "Ajouter un fichier" apparaîtra dans le chat) ; si c'est dans un lot, mets aussi le champ correspondant en "fields" avec "type": "file".
 - Quand tu demandes PLUSIEURS informations en même temps, ne les énumère pas en texte : remplis "fields" avec un questionnaire, un objet par champ : { "key": "organizationId", "label": "ID client (organizationId)", "type": "number", "placeholder": "ex. 49" }. Types : "text", "number", "file" (upload du CSV), "choice" (avec "choices": [...], ex. ["Oui","Non"]). Chaque champ indique le format de réponse attendu.
 - ORDRE DES DEMANDES en mode JSON : d'abord le FICHIER matrice réseau (CSV ou XLSX, champ "type": "file"), PUIS les questions (organizationId + networkId toujours des NOMBRES "type": "number", puis exercices, ratio, sommaire, ligne/barre) (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné (JSON & CSS) : d'abord TOUTES les questions JSON (CSV, IDs, exercices, ratio, sommaire, ligne/barre) et on génère le JSON en phase 1 ; PUIS les questions CSS (nom du client, URL du site) et le CSS en phase 2 — jamais l'inverse.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
@@ -255,6 +258,7 @@ def _parse(data: dict) -> ChatResponse:
         reply=str(data.get("reply") or ""),
         done=bool(data.get("done")),
         options=[str(o) for o in (data.get("options") or [])],
+        awaiting_file=bool(data.get("awaitingFile")),
         fields=[
             FieldSpec(
                 key=str(f.get("key") or ""),

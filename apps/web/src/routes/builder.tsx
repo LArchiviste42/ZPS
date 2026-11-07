@@ -6,13 +6,14 @@ type Mode = "structure_and_design" | "design_only" | "structure_only";
 
 type FieldSpec = { key: string; label: string; type: "text" | "number" | "file" | "choice"; choices?: string[] | null; placeholder?: string | null };
 
-type ChatTurn = { role: "user" | "assistant"; content: string; options?: string[]; fields?: FieldSpec[] };
+type ChatTurn = { role: "user" | "assistant"; content: string; options?: string[]; fields?: FieldSpec[]; awaitingFile?: boolean };
 
 type ChatResponse = {
   reply: string;
   done: boolean;
   options: string[];
   fields: FieldSpec[];
+  awaitingFile: boolean;
   reportJson: unknown | null;
   css: string | null;
   excluded: string[];
@@ -229,7 +230,7 @@ function BuilderPage() {
         reportJson: report?.reportJson ?? null,
         css: report?.css ?? null,
       });
-      setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields }]);
+      setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields, awaitingFile: data.awaitingFile }]);
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         await refreshHistory();
@@ -252,6 +253,41 @@ function BuilderPage() {
     if (!report?.reportJson) return "analyse de la matrice réseau et rédaction du JSON…";
     return "lecture du site du client et génération du CSS…";
   })();
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAwaitedFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    readUpload(file);
+    const upload = file.type.startsWith("image/")
+      ? { text: null, b64: null, imgB64: imgB64 }
+      : file.name.toLowerCase().endsWith(".xlsx")
+        ? { text: null, b64: csvB64, imgB64: null }
+        : { text: csvText, b64: null, imgB64: null };
+    // readUpload is async (arrayBuffer/text); read again synchronously is not possible, so re-read:
+    void (file.type.startsWith("image/") || file.name.toLowerCase().endsWith(".xlsx")
+      ? file.arrayBuffer()
+      : file.text()
+    ).then((content) => {
+      let up = upload;
+      if (file.type.startsWith("image/")) {
+        let bin = "";
+        const bytes = new Uint8Array(content as ArrayBuffer);
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+        up = { text: null, b64: null, imgB64: btoa(bin) };
+      } else if (file.name.toLowerCase().endsWith(".xlsx")) {
+        let bin = "";
+        const bytes = new Uint8Array(content as ArrayBuffer);
+        for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i] ?? 0);
+        up = { text: null, b64: btoa(bin), imgB64: null };
+      } else {
+        up = { text: content as string, b64: null, imgB64: null };
+      }
+      void sendText(`📎 ${file.name}`, up);
+    });
+  };
 
   const handleFiles = (files: FileList | File[]) => {
     const f = files[0];
@@ -464,6 +500,7 @@ function BuilderPage() {
               setInput={setInput}
               csvName={csvName}
               imgName={imgName}
+          onPickFile={() => fileInputRef.current?.click()}
               onFile={onFile}
               onSend={send}
               onSendText={(t, u) => void sendText(t, u)}
@@ -506,6 +543,7 @@ function BuilderPage() {
           setInput={setInput}
           csvName={csvName}
           imgName={imgName}
+          onPickFile={() => fileInputRef.current?.click()}
           onFile={onFile}
           onSend={send}
           onSendText={(t, u) => void sendText(t, u)}
@@ -515,6 +553,13 @@ function BuilderPage() {
         )}
       </div>
       )}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.csv,.xlsx,text/csv"
+        className="hidden"
+        onChange={handleAwaitedFile}
+      />
     </main>
   );
 }
@@ -528,6 +573,7 @@ function ChatColumn({
   csvName,
   imgName,
   onFile,
+  onPickFile,
   onSend,
   onSendText,
   status,
@@ -541,6 +587,7 @@ function ChatColumn({
   csvName: string;
   imgName: string;
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onPickFile: () => void;
   onSend: (e: FormEvent) => void;
   onSendText: (text: string, upload?: { text: string | null; b64: string | null; imgB64?: string | null }) => void;
   status: string;
@@ -564,6 +611,18 @@ function ChatColumn({
                 </span>
               )}
               <span className="whitespace-pre-wrap">{turn.content}</span>
+              {turn.role === "assistant" && turn.awaitingFile && (
+                <div className="mt-2">
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => onPickFile()}
+                    className="rounded-full border border-zei-mint bg-zei-mint/20 px-4 py-1.5 text-xs font-bold text-white transition hover:bg-zei-mint hover:text-zei-navy disabled:opacity-50"
+                  >
+                    📎 Ajouter un fichier
+                  </button>
+                </div>
+              )}
               {turn.role === "assistant" && turn.fields && turn.fields.length > 0 && (
                 <Questionnaire fields={turn.fields} disabled={pending} onSubmit={onSendText} />
               )}
