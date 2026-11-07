@@ -499,6 +499,21 @@ function BuilderPage() {
             <div className="sticky top-4 flex min-h-0 flex-col gap-3 self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-visible">
               <div className="relative shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-white">
                 <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report, 0.5)} />
+                {report.css && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() =>
+                      void sendText(
+                        "Améliore le design : propose des améliorations du CSS dans les limites du contrat CSS Zei (variables :root, sélecteurs du contrat, @import en tête de fichier, contrastes, zébrage, liens lisibles sans survol), pour un rendu le plus professionnel possible.",
+                      )
+                    }
+                    title="Laisser ML4 améliorer le design"
+                    className="absolute left-2 top-2 rounded-full bg-zei-mint px-2.5 py-1.5 text-xs font-bold text-zei-navy transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    ✨ Améliorer le design
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setPreviewFull(true)}
