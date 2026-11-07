@@ -103,7 +103,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - MODE COMBINÉ (structure_and_design) EN DEUX TEMPS :
   * phase 1 (currentReportJson absent) : rassemble les infos JSON (CSV matrice réseau, organizationId, networkId, exercices historiques, ratio graphiques/tableaux) et génère UNIQUEMENT reportJson (css = null), done=true. Dans "reply", dis : le JSON est prêt et téléchargeable — réponds « ok » pour passer au CSS.
   * phase 2 (currentReportJson fourni, currentCss absent) : rassemble les infos CSS si manquantes (nom du client, URL du site), puis génère UNIQUEMENT le css (reportJson = currentReportJson inchangé), done=true.
-- MODE COMBINÉ, BOUCLE D'ITÉRATION : après la V1 du JSON (phase 1), propose TOUJOURS les options ["Itérer sur le JSON", "JSON terminé"]. Tant que l'utilisateur n'a pas cliqué « JSON terminé », tu restes sur le JSON (itérations en langage naturel) et tu ne produis JAMAIS de CSS. Le CSS ne démarre qu'en phase 2, après « JSON terminé ».
+- MODE COMBINÉ, BOUCLE D'ITÉRATION : après la V1 du JSON (phase 1), laisse l'utilisateur itérer librement en langage naturel dans le chat (PAS de boutons/options imposés). Le passage au CSS se fait via le bouton « Passer au CSS » (forcePhase="css") ; tant qu'il n'est pas cliqué, tu ne produis JAMAIS de CSS.
 - RAFFINEMENT : si un livrable a déjà été généré (currentCss / currentReportJson fournis) et que l'utilisateur demande une modification en langage naturel (« rends les titres plus gros », « change la couleur principale »…), modifie le livrable existant (currentCss prioritairement si la demande porte sur le design) en conséquence et réponds done=true avec le livrable modifié. Ne recommence JAMAIS les questions ni le questionnaire quand un livrable existe.
 - NOUVELLE DEMANDE = repartir de zéro : si l'utilisateur annonce un nouveau client, une nouvelle URL de site ou une nouvelle demande, IGNORE currentCss / currentReportJson (ils appartiennent à une autre demande) et régénère depuis le template de base + la charte du NOUAUVEAU client. Ne mélange jamais la charte d'un ancien client avec celle du nouveau.
 """
@@ -461,10 +461,6 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         response.awaiting_file = True
         if "capture" not in response.reply.lower():
             response.reply += " Je n'ai pas pu lire le site automatiquement depuis l'app : envoie une capture d'écran de son site via le bouton « Ajouter un fichier » et je déduis le design dessus."
-    if request.mode == "structure_and_design" and request.report_json is None and response.done and response.report_json:
-        # V1 du JSON produite : demander l'itération jusqu'à « JSON terminé » avant le CSS.
-        response.options = ["Itérer sur le JSON", "JSON terminé"]
-        response.reply += " — V1 du JSON prête. Itère dessus en langage naturel, ou clique « JSON terminé » pour passer au CSS."
     # Last resort: still nothing after the guard rounds -> one forced generation with ML4.
     if not response.done and not response.options and not response.fields and "?" not in response.reply:
         forced = complete_json(

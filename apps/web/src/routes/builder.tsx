@@ -541,7 +541,25 @@ function BuilderPage() {
                 </button>
               </div>
               {report.css && <DownloadCssButton css={report.css} />}
-              {report.reportJson != null && <DownloadJsonButton reportJson={report.reportJson} />}
+              {report.reportJson != null && (
+                <div className={`flex gap-2 ${mode === "structure_and_design" ? "" : "flex-col"}`}>
+                  <div className={mode === "structure_and_design" ? "flex-1" : "w-full"}>
+                    <DownloadJsonButton reportJson={report.reportJson} />
+                  </div>
+                  {mode === "structure_and_design" && !report.css && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => void sendText("JSON terminé")}
+                      title="Passer à la phase CSS (le JSON reste la base de l'aperçu)"
+                      className="flex-1 rounded-2xl px-4 py-3 text-sm font-extrabold text-[#262882] shadow transition hover:brightness-110 disabled:opacity-50"
+                      style={{ background: "linear-gradient(90deg,#FFD800 0%,#FFAF00 25%,#FF8205 55%,#FA500F 80%,#E10500 100%)" }}
+                    >
+                      🎨 Passer au CSS
+                    </button>
+                  )}
+                </div>
+              )}
               {(report.css || report.reportJson != null) && (
                 <p className="text-center text-xs text-white/50">à copier-coller dans Zei</p>
               )}
@@ -1022,8 +1040,17 @@ function renderTableOfContent(blocks: any[]): string {
 }
 
 function renderTable(data: any): string {
-  const columns: any[] = data?.table?.columns ?? [];
-  const ids: string[] = data?.table?.indicatorIds ?? [];
+  const table = data?.table ?? {};
+  // Format dynamique (columns/indicatorIds) du skill, ou format statique (headers/rows) du wiki.
+  if (Array.isArray(table.headers) && Array.isArray(table.rows)) {
+    const head = table.headers.map((h: any) => `<th>${esc(typeof h === "string" ? h : h?.label ?? h?.title ?? "")}</th>`).join("");
+    const rows = table.rows
+      .map((r: any) => `<tr>${(Array.isArray(r) ? r : [r]).map((c: any) => `<td>${esc(typeof c === "string" ? c : c?.value ?? c?.label ?? "")}</td>`).join("")}</tr>`)
+      .join("");
+    return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+  const columns: any[] = table.columns ?? [];
+  const ids: string[] = table.indicatorIds ?? [];
   const head = columns.map((c) => `<th>${esc(c.label ?? c.type)}</th>`).join("");
   const rows = ids
     .map((id) => {
@@ -1043,6 +1070,12 @@ function renderTable(data: any): string {
   return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+function renderKpi(data: any): string {
+  const ind = data?.kpiIndicator ?? data?.kpi ?? {};
+  const id = ind.indicatorId ?? ind.indicatorIds?.[0] ?? "?";
+  return `<div class="editor-kpi"><div><div><strong>${fakeValue(String(id)).toLocaleString("fr-FR")}</strong><div>Indicateur ${esc(id)}</div></div></div></div>`;
+}
+
 function renderBlocks(reportJson: any): string {
   const blocks: any[] = Array.isArray(reportJson?.blocks) && reportJson.blocks.length > 0 ? reportJson.blocks : DEMO_REPORT.blocks;
   // Chaque pageBreak ouvre une nouvelle "page A4" (le rapport se téléchargerait en PDF depuis Zei).
@@ -1058,12 +1091,25 @@ function renderBlocks(reportJson: any): string {
       html = `<h${level}>${esc(b.data?.text)}</h${level}>`;
     } else if (b.type === "table_of_content") {
       html = renderTableOfContent(blocks);
-    } else if (b.type === "chart") {
+    } else if (b.type === "chart" || b.type === "circular_chart") {
       html = renderChart(b.data);
-    } else if (b.type === "table") {
+    } else if (b.type === "table" || b.type === "table_raw") {
       html = renderTable(b.data);
+    } else if (b.type === "kpi_indicator") {
+      html = renderKpi(b.data);
+    } else if (b.type === "paragraph") {
+      html = `<p>${esc(b.data?.text)}</p>`;
+    } else if (b.type === "quote") {
+      html = `<blockquote style="border-left:3px solid var(--tertiary,#58b896);margin:12px 0;padding:8px 14px;background:var(--fourth,rgba(88,184,150,.15))">${esc(b.data?.text ?? b.data?.caption ?? "")}</blockquote>`;
+    } else if (b.type === "line_separator") {
+      html = `<hr style="border:none;border-top:1px solid rgba(60,60,59,.25);margin:18px 0">`;
+    } else if (b.type === "columns") {
+      const cols = (b.data?.cols ?? []).map((col: any) => `<div style="flex:1;min-width:0">${renderBlocks({ blocks: col?.blocks ?? [] })}</div>`).join("");
+      html = `<div style="display:flex;gap:16px">${cols}</div>`;
     } else if (b.type === "text_indicators") {
       html = `<p>Donnée narrative de démonstration pour l'indicateur ${esc(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? "")} — contenu généré à partir de la matrice réseau du client.</p>`;
+    } else if (b.data?.text) {
+      html = `<p>${esc(b.data.text)}</p>`;
     }
     pages[pages.length - 1] += "\n" + html;
   }
