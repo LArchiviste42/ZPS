@@ -251,15 +251,7 @@ function BuilderPage() {
           <h1 className="text-lg font-extrabold uppercase tracking-wide text-white">Reporting Builder</h1>
           <span className="flex items-center gap-1 text-[10px] font-semibold normal-case text-white/60">
             powered by Mistral
-            <svg viewBox="0 0 18 12" className="h-3 w-auto rounded-[2px]" aria-label="Union européenne">
-              <rect width="18" height="12" fill="#003399" />
-              {Array.from({ length: 12 }, (_, i) => {
-                const angle = (i / 12) * 2 * Math.PI - Math.PI / 2;
-                return (
-                  <circle key={i} cx={9 + 4.2 * Math.cos(angle)} cy={6 + 4.2 * Math.sin(angle)} r="0.8" fill="#FFCC00" />
-                );
-              })}
-            </svg>
+            <img src="/drapeau-eu.png" alt="Union européenne" className="h-4 w-auto rounded-[2px]" />
           </span>
         </button>
         <nav className="ml-auto flex items-center gap-2">
