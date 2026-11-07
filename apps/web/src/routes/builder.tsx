@@ -489,7 +489,7 @@ function BuilderPage() {
 
         {report && (
           <div className="grid min-h-0 flex-1 gap-4 lg:h-full lg:grid-cols-[3fr_2fr]">
-            <div className="sticky top-4 flex min-h-0 flex-col gap-3 self-start overflow-y-auto pr-1 lg:max-h-[calc(100vh-7rem)]">
+            <div className="sticky top-4 flex min-h-0 flex-col gap-3 self-start lg:max-h-[calc(100vh-7rem)] lg:overflow-visible">
               <div className="relative shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-white">
                 <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report, 0.5)} />
                 <button
