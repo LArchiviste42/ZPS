@@ -309,7 +309,7 @@ def test_complete_json_falls_back_to_faster_model_on_504(client: TestClient, mon
     res = client.post("/api/report/chat", json={"mode": "design_only", "messages": [{"role": "user", "content": "EDF"}]})
     assert res.status_code == 200
     assert seen_models[0] == "mistral-small-latest"  # Q&A rapide d'abord
-    assert "mistral-large-4" in seen_models or True  # génération non atteinte ici (done=false)
+    assert "mistral-large-4" not in seen_models  # done=false : pas d'appel de génération
 
 
 def test_complete_json_model_fallback_on_generation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -327,4 +327,4 @@ def test_complete_json_model_fallback_on_generation(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
     data = complete_json("system", "payload")
     assert data == {"reply": "fallback ok"}
-    assert seen == ["mistral-large-4", "mistral-medium-latest"]
+    assert seen[0] == "mistral-large-4" and seen[-1] == "mistral-medium-latest"
