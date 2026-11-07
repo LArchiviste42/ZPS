@@ -387,38 +387,19 @@ function BuilderPage() {
 
       {view === "home" && (
         <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center gap-4 px-6 py-16">
-          {(() => {
-            const [first, ...rest] = MODES;
-            if (!first) return null;
-            const main = first;
-            const btnClass = "flex flex-col items-center justify-center gap-3 border text-center text-white transition hover:scale-[1.01] border-white/25 bg-white/10 hover:bg-white/20";
-            return (
-              <>
-                <button
-                  key={main.value}
-                  type="button"
-                  onClick={() => pickMode(main.value)}
-                  className={`${btnClass} w-full rounded-2xl px-6 py-12`}
-                >
-                  <span className="text-zei-mint [&>svg]:h-12 [&>svg]:w-12">{main.icon}</span>
-                  <span className="text-xl font-extrabold uppercase tracking-wide">{main.longTitle}</span>
-                </button>
-                <div className="grid w-full grid-cols-2 gap-4">
-                  {rest.map((m) => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      onClick={() => pickMode(m.value)}
-                      className={`${btnClass} rounded-lg px-4 py-10`}
-                    >
-                      <span className="text-zei-mint [&>svg]:h-10 [&>svg]:w-10">{m.icon}</span>
-                      <span className="text-sm font-bold uppercase">{m.longTitle}</span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
+          <div className="grid w-full max-w-xl grid-cols-2 gap-4">
+            {MODES.map((m) => (
+              <button
+                key={m.value}
+                type="button"
+                onClick={() => pickMode(m.value)}
+                className="flex aspect-square flex-col items-center justify-center gap-3 rounded-2xl border border-white/25 bg-white/10 text-center text-white transition hover:scale-[1.02] hover:bg-white/20"
+              >
+                <span className="text-zei-mint [&>svg]:h-12 [&>svg]:w-12">{m.icon}</span>
+                <span className="px-2 text-sm font-extrabold uppercase tracking-wide">{m.longTitle}</span>
+              </button>
+            ))}
+          </div>
         </section>
       )}
 
