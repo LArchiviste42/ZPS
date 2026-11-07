@@ -99,6 +99,38 @@
   }
 }
 
+@keyframes chonk-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.08, 0.88);
+  }
+  45%,
+  55% {
+    transform: translateY(-34px) scale(0.96, 1.06);
+  }
+}
+
+.chonk-bounce {
+  animation: chonk-bounce 0.9s cubic-bezier(0.5, 0, 0.75, 0.4) infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes chonk-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: scaleX(0.55);
+    opacity: 0.15;
+  }
+}
+
+.chonk-shadow {
+  animation: chonk-shadow 0.9s cubic-bezier(0.5, 0, 0.75, 0.4) infinite;
+}
+
 @keyframes chonk-blink {
   0%,
   92%,
@@ -238,6 +270,8 @@
   .chonk-tail,
   .chonk-eyes,
   .chonk-juggle,
+  .chonk-bounce,
+  .chonk-shadow,
   .chonk-ball,
   .chonk-paw,
   .chonk-paws,
