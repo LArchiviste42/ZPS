@@ -65,6 +65,8 @@ class ChatResponse(BaseModel):
     fields: list[FieldSpec] = Field(default_factory=list)
     # True quand le prochain attendu est un FICHIER (matrice CSV/XLSX ou capture d'écran).
     awaiting_file: bool = Field(default=False, alias="awaitingFile")
+    # Identité visuelle extraite du site du client (couleurs/polices) pour pré-remplir l'aperçu.
+    site_brand: dict | None = Field(default=None, alias="siteBrand")
     report_json: dict | None = Field(default=None, alias="reportJson")
     css: str | None = None
     excluded: list[str] = Field(default_factory=list)
@@ -325,6 +327,7 @@ def _parse(data: dict) -> ChatResponse:
         done=bool(data.get("done")),
         options=[str(o) for o in (data.get("options") or [])],
         awaiting_file=bool(data.get("awaitingFile")),
+        site_brand=None,
         fields=[
             FieldSpec(
                 key=str(f.get("key") or ""),
@@ -381,6 +384,8 @@ def report_chat(request: ChatRequest) -> ChatResponse:
     }
     data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64, deadline=request_deadline)
     response = _parse(data)
+    if site_brand:
+        response.site_brand = site_brand
     if site_brand and site_brand.get("blocked") and not request.css:
         # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
         response.awaiting_file = True

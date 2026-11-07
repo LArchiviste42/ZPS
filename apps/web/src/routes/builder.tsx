@@ -14,6 +14,7 @@ type ChatResponse = {
   options: string[];
   fields: FieldSpec[];
   awaitingFile: boolean;
+  siteBrand: { colors?: string[]; fonts?: string[]; title?: string } | null;
   reportJson: unknown | null;
   css: string | null;
   excluded: string[];
@@ -249,6 +250,10 @@ function BuilderPage() {
         forcePhase: /terminé/i.test(text) ? "css" : null,
       });
       setTurns((prev) => [...prev, { role: "assistant", content: data.reply, options: data.options, fields: data.fields, awaitingFile: data.awaitingFile }]);
+      if (data.siteBrand?.colors?.length && !report?.css && !report?.reportJson) {
+        // Aperçu immédiat au design du client (rapport de démo + CSS rapide tiré du site), jamais le design par défaut.
+        setReport({ reportJson: DEMO_REPORT, css: brandCssFromSite(data.siteBrand) });
+      }
       if (data.done && (data.reportJson != null || data.css != null)) {
         setReport({ reportJson: data.reportJson, css: data.css });
         setRefining(true); // livrable proposé dans ce chat -> les prochains messages peuvent le raffiner
@@ -927,6 +932,23 @@ function ChonkThinking() {
 }
 
 /* ---------- Aperçu du rapport (données fictives) ---------- */
+
+function brandCssFromSite(brand: { colors?: string[]; fonts?: string[] }): string {
+  const colors = (brand.colors ?? []).filter((c) => c && c.startsWith("#"));
+  const primary = colors[0] ?? "#262882";
+  const accent = colors[1] ?? colors[0] ?? "#58b896";
+  const font = (brand.fonts ?? []).find((f) => f && !/helvetica|arial|sans-serif/i.test(f)) ?? "Poppins";
+  const r = parseInt(primary.slice(1, 3), 16);
+  const g = parseInt(primary.slice(3, 5), 16);
+  const b = parseInt(primary.slice(5, 7), 16);
+  return `:root{--primary:${primary};--secondary:#3c3c3b;--tertiary:${accent};--fourth:rgba(${r},${g},${b},0.18);}
+body{font-family:'${font.replace(/'/g, "")}',sans-serif;font-size:14px;color:var(--secondary);}
+h1{color:var(--primary);font-size:32px;font-weight:700;} h2{color:var(--primary);font-size:24px;font-weight:600;margin-top:24px;padding-bottom:6px;border-bottom:3px solid var(--tertiary);} h3{font-size:20px;font-weight:600;}
+a{color:var(--primary);} table{background-color:var(--fourth);width:100%;table-layout:fixed;border-collapse:collapse;} thead{background-color:var(--primary);} thead th{color:#fff;} tbody tr:nth-child(even){background-color:rgba(255,255,255,.4);}
+.editor-kpi div div{border-radius:12px;padding:10px;background-color:var(--fourth);} .ce-chart{border:none;box-shadow:none;}`;
+}
+
+
 
 const ALLOWED_TAGS = new Set(["b", "i", "u", "em", "strong", "a", "br", "span", "p"]);
 
