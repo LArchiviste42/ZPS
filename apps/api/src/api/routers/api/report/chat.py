@@ -409,7 +409,9 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             response.excluded = forced_response.excluded
             response.notes = forced_response.notes
     # Après chaque CSS produit (V1 ou itération), proposer l'optimisation par Le Chonk.
-    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower():
+    last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
+    just_asked_chonk = "le chonk" in last_user_msg.lower() or "améliore le design" in last_user_msg.lower() or "ameliore le design" in last_user_msg.lower()
+    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower() and not just_asked_chonk:
         response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
         response.options = ["Oui", "Non"]
     if response.done and (response.report_json or response.css):
@@ -506,7 +508,9 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             response.excluded = forced_response.excluded
             response.notes = forced_response.notes
     # Après chaque CSS produit (V1 ou itération), proposer l'optimisation par Le Chonk.
-    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower():
+    last_user_msg = next((m.content for m in reversed(request.messages) if m.role == "user"), "")
+    just_asked_chonk = "le chonk" in last_user_msg.lower() or "améliore le design" in last_user_msg.lower() or "ameliore le design" in last_user_msg.lower()
+    if response.done and response.css and request.mode != "structure_only" and "le chonk" not in response.reply.lower() and not just_asked_chonk:
         response.reply += " Souhaites-tu que j'appelle Le Chonk pour optimiser le CSS ?"
         response.options = ["Oui", "Non"]
     if response.done and (response.report_json or response.css):
