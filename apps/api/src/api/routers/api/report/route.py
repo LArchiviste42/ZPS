@@ -29,6 +29,7 @@ def complete_json(
     retries: int = 2,
     fallback: bool = True,
     image_b64: str | None = None,
+    deadline: float | None = None,
 ) -> dict:
     """Call the model in JSON mode and parse its answer; retries, then automatic fallback
     to faster models, then a clean 502. The gateway proxy can answer 200 with an empty body
@@ -43,6 +44,7 @@ def complete_json(
     client_factories = [caller_mistral_client]
     if mistral_credential_configured():
         client_factories.append(mistral_client)
+    started = time.monotonic()
     for client_factory in client_factories:
         try:
             client = client_factory()
@@ -51,6 +53,9 @@ def complete_json(
             continue
         for model_name in models:
             for attempt in range(retries + 1):
+                # Total time budget: never let retries/models push the request past the gateway timeout.
+                if deadline is not None and time.monotonic() - started > deadline:
+                    raise HTTPException(status_code=504, detail="Zai n'a pas pu répondre (délai dépassé). Réessaie dans un instant.")
                 try:
                     user_content: object = user_payload
                     if image_b64:

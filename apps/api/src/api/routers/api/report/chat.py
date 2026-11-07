@@ -4,6 +4,7 @@ import io
 import json
 import logging
 import os
+import time
 import re
 import xml.etree.ElementTree as ET
 import zipfile
@@ -323,6 +324,7 @@ def _parse(data: dict) -> ChatResponse:
     summary="Conversational report builder: asks for the needed data, then generates JSON/CSS",
 )
 def report_chat(request: ChatRequest) -> ChatResponse:
+    request_deadline = time.monotonic() + 50  # the gateway times out around 60s
     indicators, csv_errors = ([], [])
     csv_text = request.csv
     if request.file_b64:
@@ -352,7 +354,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
         "currentReportJson": request.report_json,
         "currentCss": request.css,
     }
-    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64)
+    data = complete_json(CHAT_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), model=CHAT_MODEL, retries=2, fallback=False, image_b64=request.image_b64, deadline=request_deadline)
     response = _parse(data)
     if site_brand and site_brand.get("blocked") and not request.css:
         # Deterministic: the site really is bot-blocked -> ask for a screenshot, with the button.
@@ -371,7 +373,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             json.dumps(payload, ensure_ascii=False),
             model=MODEL,
             retries=1,
-            image_b64=request.image_b64,
+            image_b64=request.image_b64, deadline=request_deadline,
         )
         forced_response = _parse(forced)
         if forced_response.done and (forced_response.report_json or forced_response.css):
@@ -391,8 +393,8 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             CHAT_SYSTEM_PROMPT + "\nL'utilisateur a tout fourni : génère maintenant le livrable final complet.",
             json.dumps(payload, ensure_ascii=False),
             model=MODEL,
-            retries=2,
-            image_b64=request.image_b64,
+            retries=1,
+            image_b64=request.image_b64, deadline=request_deadline,
         )
         final_response = _parse(final)
         response.report_json = final_response.report_json
@@ -417,7 +419,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             json.dumps(payload, ensure_ascii=False),
             model=CHAT_MODEL,
             retries=1,
-            image_b64=request.image_b64,
+            image_b64=request.image_b64, deadline=request_deadline,
         )
         fixed = _parse(corrected)
         if needs_css and not response.css:
@@ -439,7 +441,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             model=CHAT_MODEL,
             retries=1,
             fallback=False,
-            image_b64=request.image_b64,
+            image_b64=request.image_b64, deadline=request_deadline,
         )
         fixed = _parse(corrected)
         response.reply = fixed.reply or response.reply
@@ -468,7 +470,7 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             json.dumps(payload, ensure_ascii=False),
             model=MODEL,
             retries=1,
-            image_b64=request.image_b64,
+            image_b64=request.image_b64, deadline=request_deadline,
         )
         forced_response = _parse(forced)
         if forced_response.done and (forced_response.report_json or forced_response.css):
