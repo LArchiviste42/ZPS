@@ -193,3 +193,70 @@ def test_report_refine_returns_updated_livrables(client: TestClient, monkeypatch
     assert body["notes"] == "couleur changée"
     assert calls[0]["model"] == "mistral-large-4"
     assert "RAFFINEMENT" in calls[0]["messages"][0]["content"]
+
+
+def test_report_chat_asks_for_missing_info(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_route
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    monkeypatch.setattr(
+        chat_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(
+            chat=SimpleNamespace(complete=lambda **kwargs: _completion({"reply": "Quel est le nom du client ?", "done": False}))
+        ),
+    )
+    res = client.post("/api/report/chat", json={"mode": "structure_and_design", "messages": []})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] is False
+    assert body["reply"]
+    assert body["historyId"] is None
+
+
+def test_report_chat_generates_and_saves_history(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_route
+
+    store_path = tmp_path / "history.json"
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(store_path))
+    output = {"reply": "Voici le livrable.", "done": True, "reportJson": {"blocks": []}, "css": "body{}", "excluded": ["Note NA"]}
+    monkeypatch.setattr(
+        chat_route,
+        "caller_mistral_client",
+        lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **kwargs: _completion(output))),
+    )
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "structure_and_design", "messages": [{"role": "user", "content": "Client EDF"}], "csv": "Thématique;Indicateur;Type;ID Parent\nEnvironnement;Émissions GES;Nombre;412225"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] is True
+    assert body["reportJson"] == {"blocks": []}
+    assert body["historyId"]
+
+    listing = client.get("/api/report/history")
+    assert listing.status_code == 200
+    entries = listing.json()["entries"]
+    assert len(entries) == 1 and entries[0]["id"] == body["historyId"]
+
+    detail = client.get(f"/api/report/history/{body['historyId']}")
+    assert detail.status_code == 200
+    assert detail.json()["css"] == "body{}"
+
+    missing = client.get("/api/report/history/doesnotexist")
+    assert missing.status_code == 404
+
+
+def test_parse_csv_indicators_maps_french_headers() -> None:
+    from api.routers.api.report.chat import parse_csv_indicators
+
+    indicators, errors = parse_csv_indicators(
+        "Thématique;Sous-thématique;Indicateur;Type;ID Parent;NA/NM\n"
+        "Environnement;GES;Émissions GES;Nombre;412225;\n"
+        "Social;Diversité;Note;Narratif;7658;NA\n"
+    )
+    assert errors == []
+    assert indicators[0]["theme"] == "Environnement"
+    assert indicators[0]["parentId"] == 412225
+    assert indicators[1]["flag"] == "NA"

@@ -71,3 +71,4 @@ coverage.xml
 .sisyphus/
 .scratch/
 .playwright-cli/
+data/
