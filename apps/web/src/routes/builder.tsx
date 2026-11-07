@@ -107,6 +107,7 @@ function BuilderPage() {
   const [turns, setTurns] = useState<ChatTurn[]>([{ role: "assistant", content: GREETINGS.structure_and_design }]);
   const [report, setReport] = useState<Report | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [previewFull, setPreviewFull] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyQuery, setHistoryQuery] = useState("");
   const [pending, setPending] = useState(false);
@@ -328,8 +329,16 @@ function BuilderPage() {
         {report && (
           <div className="grid flex-1 gap-4 lg:grid-cols-2">
             <div className="flex flex-col gap-3">
-              <div className="overflow-hidden rounded-2xl border border-white/20 bg-white">
-                <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report)} />
+              <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white">
+                <iframe title="Aperçu du rapport" className="h-[560px] w-full" srcDoc={buildPreviewSrcDoc(report, 0.5)} />
+                <button
+                  type="button"
+                  onClick={() => setPreviewFull(true)}
+                  title="Agrandir l'aperçu"
+                  className="absolute right-2 top-2 rounded-full bg-zei-navy/80 px-2.5 py-1.5 text-sm text-white transition hover:bg-zei-navy"
+                >
+                  ⤢ Agrandir
+                </button>
               </div>
               {report.css && <DownloadCssButton css={report.css} />}
               {report.reportJson != null && <DownloadJsonButton reportJson={report.reportJson} />}
@@ -349,6 +358,30 @@ function BuilderPage() {
               onSend={send}
               bottomRef={bottomRef}
             />
+          </div>
+        )}
+
+        {previewFull && report && (
+          <div
+            className="fixed inset-0 z-30 flex items-center justify-center bg-zei-navy/80 p-4 backdrop-blur-sm"
+            onClick={() => setPreviewFull(false)}
+          >
+            <div
+              className="flex h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-white/20 bg-white"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between bg-zei-navy px-4 py-2">
+                <span className="text-sm font-bold text-white">Aperçu du rapport — taille réelle</span>
+                <button
+                  type="button"
+                  onClick={() => setPreviewFull(false)}
+                  className="rounded-full border border-white/25 px-2.5 py-1 text-xs font-bold text-white/80 hover:bg-white/20"
+                >
+                  ✕ Fermer
+                </button>
+              </div>
+              <iframe title="Aperçu du rapport en taille réelle" className="w-full flex-1" srcDoc={buildPreviewSrcDoc(report, 1)} />
+            </div>
           </div>
         )}
 
@@ -690,8 +723,8 @@ function renderBlocks(reportJson: any): string {
     .join("\n");
 }
 
-function buildPreviewSrcDoc(report: Report): string {
+function buildPreviewSrcDoc(report: Report, zoom = 1): string {
   const css = report.css ?? DEFAULT_CSS;
-  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${renderBlocks(report.reportJson)}</body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>body{zoom:${zoom}}</style></head><body>${renderBlocks(report.reportJson)}</body></html>`;
 }
 
