@@ -352,3 +352,45 @@ def test_report_chat_survives_history_save_failure(client: TestClient, monkeypat
     assert res.status_code == 200
     assert res.json()["css"] == "body{}"
     assert res.json()["historyId"] is None
+
+
+def test_report_chat_fetches_site_brand_when_url_given(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    captured: list[dict] = []
+
+    class FakeChat:
+        def complete(self, **kwargs: object) -> SimpleNamespace:
+            captured.append(kwargs)
+            return _completion({"reply": "Quelle URL ?", "done": False})
+
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=FakeChat()))
+    monkeypatch.setattr(
+        chat_module,
+        "fetch_site_brand",
+        lambda url: {"url": url, "title": "Grandir", "colors": ["#ffcf00", "#123456"], "fonts": ["'Nunito', sans-serif"]},
+    )
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "design_only", "messages": [{"role": "user", "content": "Client Grandir, site https://www.grandir.com/fr/"}]},
+    )
+    assert res.status_code == 200
+    payload = json.loads(captured[0]["messages"][1]["content"])
+    assert payload["siteBrand"]["title"] == "Grandir"
+    assert "#ffcf00" in payload["siteBrand"]["colors"]
+
+
+def test_report_chat_skips_site_fetch_in_json_only_mode(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    from api.routers.api.report import chat as chat_module
+
+    monkeypatch.setenv("REPORT_HISTORY_PATH", str(tmp_path / "history.json"))
+    called = []
+    monkeypatch.setattr(report_route, "caller_mistral_client", lambda: SimpleNamespace(chat=SimpleNamespace(complete=lambda **k: _completion({"reply": "ok ?", "done": False}))))
+    monkeypatch.setattr(chat_module, "fetch_site_brand", lambda url: called.append(url) or {})
+    res = client.post(
+        "/api/report/chat",
+        json={"mode": "structure_only", "messages": [{"role": "user", "content": "site https://example.com"}]},
+    )
+    assert res.status_code == 200
+    assert called == []

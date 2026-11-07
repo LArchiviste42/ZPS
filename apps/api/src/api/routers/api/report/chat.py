@@ -3,10 +3,12 @@ import csv
 import io
 import json
 import logging
+import re
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import Literal
 
+import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
@@ -82,6 +84,7 @@ TU ES EN MODE CONVERSATION : l'utilisateur discute avec toi pour construire son 
 - ORDRE DES DEMANDES en mode JSON : d'abord organizationId + networkId (toujours des NOMBRES : champs "type": "number"), puis le fichier CSV de la matrice réseau, puis les choix (nombre d'exercices historiques, ratio graphiques/tableaux, sommaire oui/non, type de graphique ligne/barre). En mode combiné, les questions CSS (nom, URL) viennent avant.
 - Réponds UNIQUEMENT avec un objet JSON : { "reply": "<message à l'utilisateur>", "done": bool, "options": [...], "reportJson": ..., "css": "...", "excluded": [...], "notes": "..." }.
 - Ne génère rien tant que les informations requises ne sont pas réunies.
+- Si "siteBrand" est présent dans le payload, c'est l'identité visuelle RÉELLEMENT extraite du site du client (couleurs hex, polices) : utilise SES couleurs pour --primary/--secondary/--tertiary/--fourth et SES polices pour les font-family — ne devine aucune autre couleur.
 - NE DIS JAMAIS « je vais extraire la charte graphique du site », « je consulte le site », « je récupère la charte » : tu ne peux pas naviguer. Dès que tu as le nom du client et l'URL, GÉNÈRE le CSS immédiatement : charte connue si la marque est célèbre (ex. EDF : --primary #07387a, --secondary #000000, --tertiary #ff5e11, --fourth rgba(150,210,242,0.35), police Nunito Sans), sinon demande les codes hex / polices de la charte du client (question avec options/fields si besoin). Ne reste jamais sur une phrase d'annonce sans rien produire. Le contenu du CSV/XLSX est DÉJÀ parsé et fourni dans "csvIndicators" : ne dis jamais « je vais analyser le fichier » — utilise directement csvIndicators pour construire le JSON.
 - Ne réponds JAMAIS done=true sans livrable non vide : en mode CSS, "css" doit contenir le CSS complet ; en mode JSON, "reportJson" le JSON complet ; en mode combiné, les deux.
 - Ne demande JAMAIS de confirmation à l'utilisateur (« c'est bon ? », « voulez-vous que je génère ? », « puis-je commencer ? ») : dès que tu as toutes les informations requises, génère immédiatement (done=true avec le livrable). L'utilisateur peut toujours affiner ensuite en langage naturel.
@@ -101,6 +104,39 @@ _HEADER_ALIASES = {
     "parentid": "parent_id", "id parent": "parent_id", "idparent": "parent_id",
     "flag": "flag", "na/nm": "flag", "nanm": "flag",
 }
+
+
+
+_URL_RE = re.compile(r"https?://[^\s\"'<>)]+")
+
+
+def fetch_site_brand(url: str) -> dict:
+    """Extract the client site's visual identity: title, hex colors and font-families from the
+    HTML and its first stylesheets. Best-effort; returns an error field on failure."""
+    try:
+        with httpx.Client(timeout=10, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+            resp = client.get(url)
+            html = resp.text[:200_000]
+            colors = re.findall(r"#[0-9a-fA-F]{6}\b", html)
+            fonts = re.findall(r"font-family:\s*([^;}]+)", html)
+            for href in re.findall(r'<link[^>]+href=["\']([^"\']+\.css[^"\']*)["\']', html)[:3]:
+                css_url = href if href.startswith("http") else resp.url.join(href).human_repr()
+                try:
+                    css = client.get(css_url).text[:100_000]
+                    colors += re.findall(r"#[0-9a-fA-F]{6}\b", css)
+                    fonts += re.findall(r"font-family:\s*([^;}]+)", css)
+                except Exception:  # noqa: BLE001  one stylesheet failing must not sink the rest
+                    continue
+            title = re.search(r"<title>([^<]+)</title>", html)
+            return {
+                "url": str(resp.url),
+                "title": title.group(1).strip() if title else "",
+                "colors": sorted({c.lower() for c in colors})[:16],
+                "fonts": sorted(set(fonts))[:10],
+            }
+    except Exception as err:  # noqa: BLE001
+        logger.warning("site brand fetch failed for %s: %s", url, err)
+        return {"url": url, "error": str(err)}
 
 
 def xlsx_to_csv_text(data: bytes) -> str:
@@ -208,8 +244,13 @@ def report_chat(request: ChatRequest) -> ChatResponse:
             csv_text = raw.decode("utf-8", errors="replace")
     if csv_text:
         indicators, csv_errors = parse_csv_indicators(csv_text) if not csv_errors else (indicators, csv_errors)
+    site_url = next((m for msg in reversed(request.messages) for m in [_URL_RE.search(msg.content)] if m), None)
+    site_brand = None
+    if site_url and request.mode != "structure_only":
+        site_brand = fetch_site_brand(site_url.group(0).rstrip(".,;"))
     payload = {
         "mode": request.mode,
+        "siteBrand": site_brand,
         "csvIndicators": indicators,
         "csvErrors": csv_errors,
         "messages": [{"role": m.role, "content": m.content} for m in request.messages],
