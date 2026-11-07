@@ -112,6 +112,7 @@ _HEADER_ALIASES = {
     "type": "type",
     "parentid": "parent_id", "parent id": "parent_id", "id parent": "parent_id", "idparent": "parent_id",
     "flag": "flag", "na/nm": "flag", "nanm": "flag", "flag na/nm": "flag",
+    "exercise": "exercise", "exercice": "exercise", "exercise id": "exercise", "exercice id": "exercise", "exercise name": "exercise",
 }
 
 
@@ -226,15 +227,17 @@ def extract_organization_id(csv_text: str) -> int | None:
 
 
 def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
-    """Parse a network-matrix CSV into indicator dicts; returns (indicators, errors)."""
-    # Detect the delimiter from the header line (Sniffer fails on cells containing commas).
+    """Parse a network-matrix CSV into indicator dicts; returns (indicators, errors).
+
+    The matrix repeats every indicator once per exercise: only the MOST RECENT exercise's
+    row is kept for each indicator (keyed by parentId, else name)."""
     header_line = text.splitlines()[0] if text.splitlines() else ""
     delimiter = max(";\t|,", key=lambda d: header_line.count(d))
     reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
     if not reader.fieldnames:
         return [], ["CSV sans ligne d'en-tête"]
     mapping = {_HEADER_ALIASES.get((f or "").strip().lower(), (f or "").strip().lower()): f for f in reader.fieldnames}
-    indicators: list[dict] = []
+    best_by_key: dict[tuple, tuple] = {}
     errors: list[str] = []
     for row in reader:
         name = (row.get(mapping.get("name", "")) or "").strip()
@@ -244,17 +247,28 @@ def parse_csv_indicators(text: str) -> tuple[list[dict], list[str]]:
         raw_type = (row.get(mapping.get("type", "")) or "Narratif").strip()
         parent = (row.get(mapping.get("parent_id", "")) or "").strip()
         flag = (row.get(mapping.get("flag", "")) or "").strip().upper()
-        indicators.append(
+        exercise_raw = (row.get(mapping.get("exercise", "")) or "").strip()
+        try:
+            exercise = int(exercise_raw)
+        except ValueError:
+            exercise = 0
+        parent_id = int(parent) if parent.isdigit() else None
+        key = (parent_id,) if parent_id is not None else (name,)
+        candidate = (
+            exercise,
             {
                 "theme": theme,
                 "subTheme": (row.get(mapping.get("sub_theme", "")) or theme).strip(),
                 "category": (row.get(mapping.get("category", "")) or "").strip(),
                 "name": name,
                 "type": raw_type if raw_type in {"Narratif", "Choix multiple", "Choix simple", "Oui/Non", "Nombre", "Pourcentage"} else "Narratif",
-                "parentId": int(parent) if parent.isdigit() else None,
+                "parentId": parent_id,
                 "flag": flag if flag in {"NA", "NM"} else None,
-            }
+            },
         )
+        if key not in best_by_key or exercise >= best_by_key[key][0]:
+            best_by_key[key] = candidate
+    indicators = [c[1] for c in best_by_key.values()]
     if not indicators:
         errors.append("Aucune ligne d'indicateur reconnue dans le CSV")
     return indicators, errors

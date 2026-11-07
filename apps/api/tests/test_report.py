@@ -520,3 +520,20 @@ def test_real_bot_wall_is_blocked() -> None:
     out = fetch_site_brand("https://bloque.example")
     assert out.get("blocked") is True
     monkeypatch.undo()
+
+
+def test_parse_keeps_only_most_recent_exercise_per_indicator() -> None:
+    from api.routers.api.report.chat import parse_csv_indicators
+
+    csv_text = (
+        "EXERCISE;THEME;INDICATOR;TYPE;PARENT ID\n"
+        "2025;Env;Émissions GES 2025;Nombre;412225\n"
+        "2026;Env;Émissions GES 2026;Nombre;412225\n"
+        "2024;Env;Émissions GES 2024;Nombre;412225\n"
+        "2026;Social;Effectif;Nombre;777\n"
+    )
+    indicators, errors = parse_csv_indicators(csv_text)
+    assert errors == []
+    assert len(indicators) == 2
+    ges = next(i for i in indicators if i["parentId"] == 412225)
+    assert ges["name"] == "Émissions GES 2026"
