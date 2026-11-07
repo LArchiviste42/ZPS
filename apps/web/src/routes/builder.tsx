@@ -67,9 +67,9 @@ const ALL_MODES: { value: Mode; title: string; longTitle: string; icon: ReactNod
 ];
 
 const GREETINGS: Record<Mode, string> = {
-  structure_and_design: "Bonjour ! On commence par le JSON : quel est le fichier matrice réseau (CSV/XLSX) du client ?",
-  structure_only: "Bonjour ! Quel est le fichier matrice réseau (CSV/XLSX) du client ?",
-  design_only: "Bonjour ! Je designe le CSS de votre rapport à la charte du client. Quel est le nom du client, et quelle est l'URL de son site web ?",
+  structure_and_design: "Bonjour ! Quel est le nom de l'entreprise (client) ?",
+  structure_only: "Bonjour ! Quel est le nom de l'entreprise (client) ?",
+  design_only: "Bonjour ! Quel est le nom de l'entreprise (client), et quelle est l'URL de son site web ?",
 };
 
 // Seules les 2 options proposées : JSON seul et CSS seul (le mode combiné reste supporté par l'API mais masqué).
