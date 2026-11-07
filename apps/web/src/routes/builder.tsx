@@ -199,6 +199,13 @@ function BuilderPage() {
     }
   };
 
+  const status = (() => {
+    if (report?.css || report?.reportJson) return "mise à jour du livrable selon ta demande…";
+    if (mode === "design_only") return "lecture du site du client et récupération de la charte graphique…";
+    if (!report?.reportJson) return "analyse de la matrice réseau et rédaction du JSON…";
+    return "lecture du site du client et génération du CSS…";
+  })();
+
   const send = (event: FormEvent) => {
     event.preventDefault();
     void sendText(input);
@@ -394,6 +401,7 @@ function BuilderPage() {
               onFile={onFile}
               onSend={send}
               onSendText={(t) => void sendText(t)}
+              status={status}
               bottomRef={bottomRef}
             />
           </div>
@@ -434,6 +442,7 @@ function BuilderPage() {
           onFile={onFile}
           onSend={send}
           onSendText={(t) => void sendText(t)}
+          status={status}
           bottomRef={bottomRef}
         />
         )}
@@ -453,6 +462,7 @@ function ChatColumn({
   onFile,
   onSend,
   onSendText,
+  status,
   bottomRef,
 }: {
   turns: ChatTurn[];
@@ -464,6 +474,7 @@ function ChatColumn({
   onFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSend: (e: FormEvent) => void;
   onSendText: (text: string) => void;
+  status: string;
   bottomRef: React.Ref<HTMLDivElement>;
 }) {
   return (
@@ -501,14 +512,17 @@ function ChatColumn({
             </div>
           ))}
           {pending && (
-            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-3">
+            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-6 py-5">
               <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
                 Zai (Le Chonk) réfléchit…
               </span>
-              <ChonkThinking />
-              <div className="zei-progress-bar mt-2 w-48">
+              <div className="h-48 w-64">
+                <ChonkThinking />
+              </div>
+              <div className="zei-progress-bar mt-3 w-96 max-w-full">
                 <span />
               </div>
+              <p className="mt-2 text-xs text-white/70">{status}</p>
             </div>
           )}
           <div ref={bottomRef} />
@@ -608,76 +622,46 @@ const CAT_MAP = [
 const CAT_COLORS: Record<string, string> = { O: "#FF8205", Y: "#FFD800", R: "#E10500", W: "#FFFFFF", K: "#262882" };
 
 function ChonkThinking() {
-  // Gros chat pixel art orange (style Mistral) qui jongle : 2 balles Zei (menthe + logo), un cerveau, un pinceau vert Zei.
-  const juggle = (delay: number, children: ReactNode) => (
-    <g className="chonk-juggle" style={{ animationDelay: `${delay}s` }}>
-      {children}
-    </g>
-  );
+  // Gros chat pixel art orange (style Mistral) qui joue avec UNE balle verte portant le logo Zei.
   return (
     <svg
-      viewBox="0 0 120 76"
-      className="chonk-bob h-24 w-auto"
+      viewBox="0 0 120 84"
+      className="chonk-bob h-full w-auto"
       shapeRendering="crispEdges"
       role="img"
-      aria-label="Zai (Le Chonk), chaton pixel art orange qui jongle"
+      aria-label="Zai (Le Chonk), chaton pixel art orange qui joue avec une balle Zei"
     >
-      {/* objets jonglés */}
-      {juggle(0, (
-        <g>
-          {/* balle menthe Zei avec la feuille blanche */}
-          <rect x="30" y="2" width="12" height="4" fill="#58B896" />
-          <rect x="26" y="6" width="20" height="8" fill="#58B896" />
-          <rect x="30" y="14" width="12" height="4" fill="#58B896" />
-          <rect x="33" y="7" width="6" height="6" fill="#FFFFFF" />
-        </g>
-      ))}
-      {juggle(-0.45, (
-        <g>
-          {/* balle indigo avec le "z" Zei */}
-          <rect x="58" y="0" width="12" height="4" fill="#4347E8" />
-          <rect x="54" y="4" width="20" height="8" fill="#4347E8" />
-          <rect x="58" y="12" width="12" height="4" fill="#4347E8" />
-          <text x="64" y="12" fontSize="9" fontFamily="monospace" fontWeight="bold" fill="#FFFFFF" textAnchor="middle">z</text>
-        </g>
-      ))}
-      {juggle(-0.22, (
-        <g>
-          {/* cerveau */}
-          <rect x="86" y="4" width="16" height="4" fill="#F2A7C3" />
-          <rect x="82" y="8" width="24" height="8" fill="#F2A7C3" />
-          <rect x="86" y="16" width="16" height="4" fill="#F2A7C3" />
-          <rect x="88" y="8" width="4" height="8" fill="#E58BB0" />
-          <rect x="96" y="8" width="4" height="8" fill="#E58BB0" />
-        </g>
-      ))}
-      {juggle(-0.67, (
-        <g>
-          {/* pinceau vert Zei */}
-          <rect x="50" y="20" width="4" height="10" fill="#FFFFFF" />
-          <rect x="48" y="30" width="8" height="6" fill="#58B896" />
-        </g>
-      ))}
+      {/* balle verte Zei (logo feuille blanche) qui rebondit */}
+      <g className="chonk-juggle">
+        <rect x="88" y="34" width="14" height="5" fill="#58B896" />
+        <rect x="84" y="39" width="22" height="12" fill="#58B896" />
+        <rect x="88" y="51" width="14" height="5" fill="#58B896" />
+        {/* feuille blanche du logo Zei sur la balle */}
+        <rect x="93" y="41" width="4" height="8" fill="#FFFFFF" />
+        <rect x="97" y="43" width="5" height="4" fill="#FFFFFF" />
+      </g>
       {/* queue */}
       <g className="chonk-tail">
-        <rect x="2" y="52" width="4" height="4" fill="#FF8205" />
-        <rect x="2" y="48" width="4" height="4" fill="#FF8205" />
-        <rect x="6" y="44" width="4" height="4" fill="#FFD800" />
+        <rect x="2" y="60" width="5" height="5" fill="#FF8205" />
+        <rect x="2" y="55" width="5" height="5" fill="#FF8205" />
+        <rect x="7" y="50" width="5" height="5" fill="#FFD800" />
       </g>
       {/* corps du chaton pixel art (dégradé Mistral) */}
       {CAT_MAP.map((row, r) =>
         [...row].map((ch, c) => {
           const fill = CAT_COLORS[ch];
           if (!fill || (r === 4 && (ch === "W" || ch === "K"))) return null;
-          return <rect key={`${r}-${c}`} x={16 + c * 4} y={24 + r * 4} width="4" height="4" fill={fill} />;
+          return <rect key={`${r}-${c}`} x={14 + c * 4} y={28 + r * 4} width="4" height="4" fill={fill} />;
         }),
       )}
       {/* yeux qui clignent */}
       <g className="chonk-eyes">
         {[3, 4, 10, 11].map((c) => (
-          <rect key={c} x={16 + c * 4} y={40} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
+          <rect key={c} x={14 + c * 4} y={44} width="4" height="4" fill={c < 8 ? "#FFFFFF" : "#262882"} />
         ))}
       </g>
+      {/* patte qui pousse la balle */}
+      <rect x="76" y="66" width="12" height="5" fill="#FF8205" />
     </svg>
   );
 }
