@@ -94,12 +94,17 @@ async function fetchJson(
 }
 
 async function postChat(payload: Record<string, unknown>): Promise<ChatResponse> {
-  const { ok, status, data } = await fetchJson("/api/report/chat", payload);
-  if (!ok || data == null) {
-    const detail = data?.detail;
-    throw new Error(typeof detail === "string" ? detail : `Zai (Le Chonk) n'a pas pu répondre (erreur ${status}). Réessaie.`);
+  let result = await fetchJson("/api/report/chat", payload);
+  // One automatic retry on a transient gateway 5xx (e.g. 504 timeout).
+  if (!result.ok && result.status >= 500) {
+    await new Promise((r) => setTimeout(r, 2000));
+    result = await fetchJson("/api/report/chat", payload);
   }
-  return data as ChatResponse;
+  if (!result.ok || result.data == null) {
+    const detail = result.data?.detail;
+    throw new Error(typeof detail === "string" ? detail : `Zai (Le Chonk) n'a pas pu répondre (erreur ${result.status}). Réessaie.`);
+  }
+  return result.data as ChatResponse;
 }
 
 function BuilderPage() {

@@ -4,7 +4,7 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
-from utils.mistral import caller_mistral_client
+from utils.mistral import caller_mistral_client, mistral_client
 
 MODEL = "mistral-large-4"
 
@@ -30,26 +30,38 @@ def complete_json(
     The model choice is never asked to the user — it is decided here.
     """
     models = (model, *FALLBACK_MODELS) if fallback else (model,)
-    for model_name in models:
-        for attempt in range(retries + 1):
-            try:
-                completion = caller_mistral_client().chat.complete(
-                    model=model_name,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_payload},
-                    ],
-                    response_format={"type": "json_object"},
-                )
-                content = completion.choices[0].message.content
-                if not isinstance(content, str) or not content.strip():
-                    raise ValueError("empty completion")
-                return json.loads(content)
-            except Exception as err:  # noqa: BLE001  any provider/parse failure moves to the next attempt/model
-                logger.warning(
-                    "report model call failed (model=%s attempt %d/%d): %s",
-                    model_name, attempt + 1, retries + 1, err,
-                )
+    # Caller token first (per-request credential from the gateway); the app's own credential is
+    # the last resort when the gateway proxy rejects the caller token (401 "Invalid or expired token").
+    client_factories = [caller_mistral_client, mistral_client]
+    for client_factory in client_factories:
+        try:
+            client = client_factory()
+        except Exception:  # noqa: BLE001
+            continue
+        for model_name in models:
+            for attempt in range(retries + 1):
+                try:
+                    completion = client.chat.complete(
+                        model=model_name,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_payload},
+                        ],
+                        response_format={"type": "json_object"},
+                        timeout=25,
+                    )
+                    content = completion.choices[0].message.content
+                    if not isinstance(content, str) or not content.strip():
+                        raise ValueError("empty completion")
+                    return json.loads(content)
+                except Exception as err:  # noqa: BLE001  any provider/parse failure moves to the next attempt/model/client
+                    logger.warning(
+                        "report model call failed (model=%s attempt %d/%d): %s",
+                        model_name, attempt + 1, retries + 1, err,
+                    )
+                    # A 401 on the caller token won't fix itself by retrying the same client: move on.
+                    if "401" in str(err):
+                        break
     raise HTTPException(status_code=502, detail="Zai (Le Chonk) n'a pas pu répondre (erreur du modèle). Réessaie dans un instant.")
 
 Mode = Literal["structure_and_design", "design_only", "structure_only"]
