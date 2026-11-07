@@ -433,7 +433,11 @@ def test_report_chat_passes_screenshot_image_to_model(client: TestClient, monkey
 def test_xlsx_inline_strings_and_english_headers_are_parsed() -> None:
     import zipfile
 
-    from api.routers.api.report.chat import extract_organization_id, parse_csv_indicators, xlsx_to_csv_text
+    from api.routers.api.report.chat import (
+        extract_organization_id,
+        parse_csv_indicators,
+        xlsx_to_csv_text,
+    )
 
     def cell(ref: str, text: str) -> str:
         return f'<c r="{ref}" t="inlineStr"><is><t>{text}</t></is></c>'
