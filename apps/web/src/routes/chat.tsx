@@ -6,7 +6,7 @@ import { createFileRoute } from "@tanstack/react-router";
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export const Route = createFileRoute("/chat")({
-  staticData: { landing: true },
+  staticData: { landing: false },
   component: ChatPage,
 });
 

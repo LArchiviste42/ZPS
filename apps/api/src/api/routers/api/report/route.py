@@ -1,0 +1,139 @@
+import json
+from typing import Literal
+
+from fastapi import APIRouter
+from mistralai.client.models import ChatCompletionResponse
+from pydantic import BaseModel, Field
+from utils.mistral import caller_mistral_client
+
+MODEL = "mistral-small-latest"
+
+router = APIRouter()
+
+Mode = Literal["structure_and_design", "design_only", "structure_only"]
+
+
+class IndicatorInput(BaseModel):
+    theme: str = Field(min_length=1)
+    sub_theme: str = Field(min_length=1, alias="subTheme")
+    category: str = ""
+    name: str = Field(min_length=1)
+    type: Literal["Narratif", "Choix multiple", "Choix simple", "Oui/Non", "Nombre", "Pourcentage"]
+    parent_id: int | None = Field(default=None, alias="parentId")
+    flag: Literal["NA", "NM"] | None = None
+
+    model_config = {"populate_by_name": True}
+
+
+class ReportRequest(BaseModel):
+    mode: Mode
+    client_name: str = Field(min_length=1, alias="clientName")
+    client_url: str = Field(min_length=1, alias="clientUrl")
+    organization_id: int = Field(alias="organizationId")
+    network_id: int = Field(alias="networkId")
+    exercice_id_n_minus_1: int = Field(alias="exerciceIdNMinus1")
+    year_n: int = Field(alias="yearN")
+    year_n_minus_1: int = Field(alias="yearNMinus1")
+    past_exercices: int = Field(alias="pastExercices", ge=1, le=20)
+    locale: str = "fr"
+    indicators: list[IndicatorInput] = Field(default_factory=list)
+
+    model_config = {"populate_by_name": True}
+
+
+class ReportResponse(BaseModel):
+    report_json: dict | None = Field(default=None, alias="reportJson")
+    css: str | None = None
+    excluded: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+    model_config = {"populate_by_name": True}
+
+
+SYSTEM_PROMPT = """Tu es le "Zei JSON builder" (skill zei-rapport-json). Tu produis le livrable d'un rapport Zei :
+
+- le JSON du rapport au format Editor.js (blocs) : { "time": <Date.now() ms>, "version": "2.30.5", "blocks": [...] } ;
+- et/ou le CSS de design du rapport personnalisé à la charte du client, selon le mode demandé.
+
+RÈGLES DU JSON (structure) :
+1. Thématique -> header niveau 2, Sous-thématique -> header niveau 3. Chaque header n'apparaît qu'une seule fois ; aucun header orphelin.
+2. Filtre d'abord les indicateurs flagués NA/NM : exclus du JSON, et liste-les dans "excluded".
+3. KPI (indicateurs Nombre/Pourcentage suivis sur plusieurs exercices) -> blocs "chart" (chartType "line"), xAxis { label: "date", type: "Exercice", relativeStart: { minusX: P }, relativeEnd: { minusX: 1 } } où P = pastExercices. Un chart peut regrouper plusieurs indicateurs de même unité. indicatorId en NOMBRE.
+4. Indicateurs Narratif -> blocs "text_indicators" avec textIndicators.indicators = [ { type: "LastValue", indicatorId: <nombre> } ].
+5. Le reste -> blocs "table" au format standard : colonnes IndicatorName ("Indicator"), LastValue (label = année N seule, ex. "2025"), YearXValue (label = année N-1 seule, "year": N-1), Progression (progression { type: "percent", column1: { type: "ExerciceXValue", exerciceId: exerciceId N-1 }, column2: { type: "LastValue" } }). indicatorIds = tableau de CHAÎNES (ID Parent, ou ID enfant si parent absent). Un seul groupe logique par table (3 à 8 indicateurs), jamais de table fourre-tout.
+6. Tous les blocs partagent organizationId, networkId, locale. Chaque bloc de contenu a un "id" unique (chaîne aléatoire type "9N0kEctQ_y").
+7. Parcours les indicateurs dans l'ordre fourni. locale "fr" par défaut.
+
+RÈGLES DU CSS (design) :
+1. Pars du template simplifié : variables :root --primary (logo/titres), --secondary (texte), --tertiary (liseré sous h2), --fourth (fond translucide rgba pour tables/cartes) ; police via @import Google Fonts + font-family ; h1-h4 ; a { color: var(--primary) } ; table { background-color: var(--fourth); width: 100%; table-layout: fixed; } ; thead { background-color: var(--primary) } ; thead th color #ffffff ; cartes KPI .editor-kpi div div { border-radius: 12px; padding: 10px; background-color: var(--fourth); }.
+2. Personnalise avec la charte du client (son site web est donné) : couleurs principales et polices. Si la police est propriétaire, choisis un fallback Google Fonts proche et dis-le dans "notes".
+3. Interdits : aucune règle [data-id], aucun ciblage des conteneurs Editor.js (.ce-block etc.), aucun !important sur la mise en page des conteneurs. Garde table { width: 100%; table-layout: fixed; }.
+
+MODE :
+- "structure_and_design" : produis reportJson ET css.
+- "structure_only" : produis UNIQUEMENT reportJson (css = null).
+- "design_only" : produis UNIQUEMENT css (reportJson = null ; les indicateurs ne sont pas nécessaires).
+
+RÉPONSE : un unique objet JSON valide, rien d'autre :
+{ "reportJson": <objet Editor.js ou null>, "css": <string ou null>, "excluded": [<noms des indicateurs NA/NM exclus>], "notes": "<remarques : indicateurs sans valeur N-1, polices fallback, etc.>" }
+"""
+
+
+def _user_prompt(request: ReportRequest) -> str:
+    indicators = [
+        {
+            "theme": i.theme,
+            "subTheme": i.sub_theme,
+            "category": i.category,
+            "name": i.name,
+            "type": i.type,
+            "parentId": i.parent_id,
+            "flag": i.flag,
+        }
+        for i in request.indicators
+    ]
+    payload = {
+        "mode": request.mode,
+        "client": {"name": request.client_name, "url": request.client_url},
+        "organizationId": request.organization_id,
+        "networkId": request.network_id,
+        "exerciceIdNMinus1": request.exercice_id_n_minus_1,
+        "yearN": request.year_n,
+        "yearNMinus1": request.year_n_minus_1,
+        "pastExercices": request.past_exercices,
+        "locale": request.locale,
+        "indicators": indicators,
+    }
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def _parse_completion(completion: ChatCompletionResponse, request: Mode) -> ReportResponse:
+    content = completion.choices[0].message.content
+    if not isinstance(content, str) or not content.strip():
+        raise ValueError("empty completion")
+    data = json.loads(content)
+    return ReportResponse(
+        report_json=data.get("reportJson") if request != "design_only" else None,
+        css=data.get("css") if request != "structure_only" else None,
+        excluded=list(data.get("excluded") or []),
+        notes=str(data.get("notes") or ""),
+    )
+
+
+@router.post(
+    "",
+    operation_id="report_generate",
+    summary="Generate a Zei report (Editor.js JSON blocks) and/or its brand CSS from client indicators",
+)
+def generate_report(request: ReportRequest) -> ReportResponse:
+    if request.mode != "design_only" and not request.indicators:
+        return ReportResponse(notes="Aucun indicateur fourni pour générer la structure.")
+    completion = caller_mistral_client().chat.complete(
+        model=MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": _user_prompt(request)},
+        ],
+        response_format={"type": "json_object"},
+    )
+    return _parse_completion(completion, request.mode)
