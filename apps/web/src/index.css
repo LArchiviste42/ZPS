@@ -49,14 +49,92 @@
   background: linear-gradient(135deg, #262882 0%, #4347e8 100%);
 }
 
+/* Zai (Le Chonk) thinking indicator: progress bar + animated chonky cat. */
+@keyframes zei-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.zei-progress-bar {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.zei-progress-bar > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 33%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #58b896, #4347e8);
+  animation: zei-progress 1.2s ease-in-out infinite;
+}
+
+@keyframes chonk-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes chonk-tail {
+  0%,
+  100% {
+    transform: rotate(-12deg);
+  }
+  50% {
+    transform: rotate(14deg);
+  }
+}
+
+@keyframes chonk-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.1);
+  }
+}
+
+.chonk-bob {
+  animation: chonk-bob 1.4s ease-in-out infinite;
+}
+
+.chonk-tail {
+  transform-origin: 8px 6px;
+  animation: chonk-tail 0.9s ease-in-out infinite;
+}
+
+.chonk-eyes {
+  transform-origin: center;
+  animation: chonk-blink 3.2s ease-in-out infinite;
+}
+
 /*
- * Spinners, pulsing placeholders and the animated background hold still for a reader who
- * asked for reduced motion.
+ * Spinners, pulsing placeholders, the animated background and the chonk hold still for a
+ * reader who asked for reduced motion.
  */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse,
   .animate-spin,
-  .zei-animated-bg {
+  .zei-animated-bg,
+  .zei-progress-bar > span,
+  .chonk-bob,
+  .chonk-tail,
+  .chonk-eyes {
     animation: none;
   }
 }

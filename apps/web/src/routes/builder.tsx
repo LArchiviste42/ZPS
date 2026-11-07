@@ -71,18 +71,34 @@ export const Route = createFileRoute("/builder")({
   component: BuilderPage,
 });
 
-async function postChat(payload: Record<string, unknown>): Promise<ChatResponse> {
-  const res = await fetch("/api/report/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  const data = (await res.json()) as ChatResponse & { detail?: unknown };
-  if (!res.ok) {
-    const detail = data.detail;
-    throw new Error(typeof detail === "string" ? detail : "Le chat a échoué.");
+// The gateway can answer a 5xx with an HTML error page: never call res.json() blindly.
+async function fetchJson(
+  url: string,
+  payload?: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; data: any }> {
+  const res = await fetch(
+    url,
+    payload
+      ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }
+      : undefined,
+  );
+  const text = await res.text();
+  let data: any = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
   }
-  return data;
+  return { ok: res.ok, status: res.status, data };
+}
+
+async function postChat(payload: Record<string, unknown>): Promise<ChatResponse> {
+  const { ok, status, data } = await fetchJson("/api/report/chat", payload);
+  if (!ok || data == null) {
+    const detail = data?.detail;
+    throw new Error(typeof detail === "string" ? detail : `Zai (Le Chonk) n'a pas pu répondre (erreur ${status}). Réessaie.`);
+  }
+  return data as ChatResponse;
 }
 
 function BuilderPage() {
@@ -112,8 +128,8 @@ function BuilderPage() {
   };
 
   const refreshHistory = async () => {
-    const res = await fetch("/api/report/history");
-    if (res.ok) setHistory((await res.json()).entries);
+    const { ok, data } = await fetchJson("/api/report/history");
+    if (ok && data) setHistory(data.entries);
   };
 
   const toggleHistory = () => {
@@ -123,9 +139,8 @@ function BuilderPage() {
   };
 
   const loadHistoryEntry = async (id: string) => {
-    const res = await fetch(`/api/report/history/${id}`);
-    if (!res.ok) return;
-    const data = (await res.json()) as { reportJson: unknown | null; css: string | null; summary: string };
+    const { ok, data } = await fetchJson(`/api/report/history/${id}`);
+    if (!ok || !data) return;
     setReport({ reportJson: data.reportJson, css: data.css });
     setTurns((prev) => [...prev, { role: "assistant", content: `Livrable rechargé depuis l'historique : ${data.summary}` }]);
     setHistoryOpen(false);
@@ -275,8 +290,14 @@ function BuilderPage() {
             </div>
           ))}
           {pending && (
-            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-2.5 text-sm text-white/80">
-              <span className="animate-pulse">Zai (Le Chonk) réfléchit…</span>
+            <div className="self-start rounded-2xl rounded-bl-sm bg-white/10 px-4 py-3">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-zei-mint">
+                Zai (Le Chonk) réfléchit…
+              </span>
+              <ChonkThinking mode={mode} />
+              <div className="zei-progress-bar mt-2 w-48">
+                <span />
+              </div>
             </div>
           )}
           <div ref={bottomRef} />
@@ -313,6 +334,60 @@ function BuilderPage() {
       </div>
       )}
     </main>
+  );
+}
+
+/* ---------- Zai (Le Chonk), gros chaton animé ---------- */
+
+function ChonkThinking({ mode }: { mode: Mode }) {
+  const coding = mode !== "design_only"; // JSON ou JSON & CSS
+  const painting = mode !== "structure_only"; // CSS ou JSON & CSS
+  return (
+    <svg viewBox="0 0 120 84" className="chonk-bob h-20 w-auto" role="img" aria-label="Zai le gros chaton réfléchit">
+      {/* tail */}
+      <g className="chonk-tail">
+        <path d="M14 62 Q4 58 6 48" stroke="#58b896" strokeWidth="5" fill="none" strokeLinecap="round" />
+      </g>
+      {/* body */}
+      <ellipse cx="52" cy="58" rx="30" ry="22" fill="#58b896" />
+      {/* head */}
+      <circle cx="52" cy="34" r="22" fill="#58b896" />
+      <path d="M36 22 L32 8 L46 16 Z" fill="#58b896" />
+      <path d="M68 22 L72 8 L58 16 Z" fill="#58b896" />
+      <path d="M38 19 L35 11 L43 15 Z" fill="#262882" />
+      <path d="M66 19 L69 11 L61 15 Z" fill="#262882" />
+      {/* eyes */}
+      <g className="chonk-eyes">
+        <circle cx="44" cy="32" r="3" fill="#262882" />
+        <circle cx="60" cy="32" r="3" fill="#262882" />
+      </g>
+      <path d="M49 40 Q52 43 55 40" stroke="#262882" strokeWidth="2" fill="none" strokeLinecap="round" />
+      {/* whiskers */}
+      <path d="M30 38 L20 36 M30 42 L20 44 M74 38 L84 36 M74 42 L84 44" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" />
+      {/* laptop with code (JSON) */}
+      {coding && (
+        <g>
+          <rect x="66" y="56" width="40" height="24" rx="3" fill="#262882" />
+          <rect x="69" y="59" width="34" height="18" rx="2" fill="#1b1e5e" />
+          <text x="86" y="72" fontSize="11" fontFamily="monospace" fill="#58b896" textAnchor="middle">&lt;/&gt;</text>
+          <rect x="62" y="79" width="48" height="4" rx="2" fill="#3c3c3b" />
+        </g>
+      )}
+      {/* paintbrush + palette (CSS) */}
+      {painting && (
+        <g>
+          <circle cx="98" cy="30" r="10" fill="#fff" />
+          <circle cx="94" cy="27" r="2.5" fill="#4347e8" />
+          <circle cx="101" cy="26" r="2.5" fill="#58b896" />
+          <circle cx="103" cy="33" r="2.5" fill="#262882" />
+          <path d="M92 40 L84 52" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+          <path d="M84 52 L80 58 L86 56 Z" fill="#4347e8" />
+        </g>
+      )}
+      {/* paws */}
+      <ellipse cx="42" cy="78" rx="7" ry="4" fill="#4aa886" />
+      <ellipse cx="62" cy="78" rx="7" ry="4" fill="#4aa886" />
+    </svg>
   );
 }
 

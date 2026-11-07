@@ -13,10 +13,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def complete_json(system_prompt: str, user_payload: str, *, retries: int = 1) -> dict:
-    """Call the model in JSON mode and parse its answer; one retry, then a clean 502.
+def complete_json(system_prompt: str, user_payload: str, *, retries: int = 3) -> dict:
+    """Call the model in JSON mode and parse its answer; a few retries, then a clean 502.
 
-    The provider occasionally returns an error page/empty body instead of JSON; without this
+    The gateway proxy sometimes answers 200 with an empty body (transient); without this
     guard the route crashes with a raw parse error instead of answering the chat.
     """
     for attempt in range(retries + 1):
