@@ -807,25 +807,37 @@ function renderTable(data: any): string {
 
 function renderBlocks(reportJson: any): string {
   const blocks: any[] = Array.isArray(reportJson?.blocks) && reportJson.blocks.length > 0 ? reportJson.blocks : DEMO_REPORT.blocks;
-  return blocks
-    .map((b) => {
-      if (b.type === "header") {
-        const level = Math.min(Math.max(Number(b.data?.level) || 2, 1), 4);
-        return `<h${level}>${esc(b.data?.text)}</h${level}>`;
-      }
-      if (b.type === "pageBreak") return `<div style="border-top:2px dashed #9a9a9a;margin:28px 0;text-align:center;font-size:10px;color:#9a9a9a">— saut de page —</div>`;
-      if (b.type === "table_of_content") return renderTableOfContent(blocks);
-      if (b.type === "chart") return renderChart(b.data);
-      if (b.type === "table") return renderTable(b.data);
-      if (b.type === "text_indicators")
-        return `<p>Donnée narrative de démonstration pour l'indicateur ${esc(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? "")} — contenu généré à partir de la matrice réseau du client.</p>`;
-      return "";
-    })
-    .join("\n");
+  // Chaque pageBreak ouvre une nouvelle "page A4" (le rapport se téléchargerait en PDF depuis Zei).
+  const pages: string[] = [""];
+  for (const b of blocks) {
+    if (b.type === "pageBreak") {
+      pages.push("");
+      continue;
+    }
+    let html = "";
+    if (b.type === "header") {
+      const level = Math.min(Math.max(Number(b.data?.level) || 2, 1), 4);
+      html = `<h${level}>${esc(b.data?.text)}</h${level}>`;
+    } else if (b.type === "table_of_content") {
+      html = renderTableOfContent(blocks);
+    } else if (b.type === "chart") {
+      html = renderChart(b.data);
+    } else if (b.type === "table") {
+      html = renderTable(b.data);
+    } else if (b.type === "text_indicators") {
+      html = `<p>Donnée narrative de démonstration pour l'indicateur ${esc(b.data?.textIndicators?.indicators?.[0]?.indicatorId ?? "")} — contenu généré à partir de la matrice réseau du client.</p>`;
+    }
+    pages[pages.length - 1] += "\n" + html;
+  }
+  return pages.map((html) => `<div class="page">${html}</div>`).join("");
 }
 
 function buildPreviewSrcDoc(report: Report, zoom = 1): string {
   const css = report.css ?? DEFAULT_CSS;
-  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>body{zoom:${zoom}}</style></head><body>${renderBlocks(report.reportJson)}</body></html>`;
+  // Habillage "page A4" de l'aperçu : marges latérales dans la page, feuilles séparées au scroll.
+  const pageChrome = `body{background:#d7dae6;padding:24px 0;}
+.page{background:#fff;width:794px;min-height:1123px;margin:0 auto 28px;padding:64px 56px;box-shadow:0 6px 18px rgba(11,13,46,.35);box-sizing:border-box;}`;
+  return `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style><style>${pageChrome}</style><style>body{zoom:${zoom}}</style></head><body>${renderBlocks(report.reportJson)}</body></html>`;
 }
+
 
