@@ -61,6 +61,11 @@
       "deploy": {
         "startCommand": "node .output/server/index.mjs"
       }
+    },
+    {
+      "type": "managed",
+      "name": "postgres",
+      "engine": "postgres"
     }
   ]
 }

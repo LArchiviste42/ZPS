@@ -5,6 +5,7 @@ requires-python = ">=3.12,<3.15"
 dependencies = [
     "utils",
     "mistralai>=3.6.0",
+    "db",
     "env",
     # At least 0.137.2: the toolkit's router loader imports `fastapi.routing.iter_route_contexts`, added
     # in that release. (It is also past 0.122, from which the security utilities answer a
@@ -30,6 +31,7 @@ dev = [
 
 [tool.uv.sources]
 utils = { workspace = true }
+db = { workspace = true }
 env = { workspace = true }
 
 [tool.uv.build-backend]

@@ -787,9 +787,9 @@ const DEMO_REPORT = {
   time: 1762500000000,
   version: "2.30.5",
   blocks: [
+    { type: "header", data: { text: "Rapport de durabilité 2026 — Module Énergie (démonstration)", level: 1 } },
     { id: "demoToc", type: "table_of_content", data: { tableOfContent: { title: "Sommaire", level: 4 } } },
     { type: "pageBreak", data: {} },
-    { type: "header", data: { text: "Rapport de durabilité 2026 — Module Énergie (démonstration)", level: 1 } },
     { type: "pageBreak", data: {} },
     { type: "header", data: { text: "ESRS E1 — Changement climatique", level: 2 } },
     { type: "text_indicators", data: { organizationId: 49, networkId: 727, locale: "fr", textIndicators: { indicators: [{ type: "LastValue", indicatorId: 48261 }] } } },

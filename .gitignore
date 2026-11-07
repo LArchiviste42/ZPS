@@ -72,3 +72,4 @@ coverage.xml
 .scratch/
 .playwright-cli/
 data/
+.mistral/cache/

@@ -7,8 +7,10 @@
       "dependencies": {
         "@mistralai-capabilities/backend-fastapi": "0.1.71",
         "@mistralai-capabilities/base-core": "0.1.71",
+        "@mistralai-capabilities/database-postgres": "0.1.71",
         "@mistralai-capabilities/deployment-apps": "0.1.71",
         "@mistralai-capabilities/deployment-apps-fastapi": "0.1.71",
+        "@mistralai-capabilities/feature-fastapi-postgres": "0.1.71",
         "@mistralai-capabilities/feature-fastapi-tanstack-start": "0.1.71",
         "@mistralai-capabilities/frontend-tanstack-start": "0.1.71",
       },
@@ -167,9 +169,13 @@
 
     "@mistralai-capabilities/base-core": ["@mistralai-capabilities/base-core@0.1.71", "", {}, "sha512-QF6tt3NEWoFDvUIlMCmBxzVWjbsEUPK2T2+cJd5uNxXoug6Ih/0RxTq4VYV0+U5rQ6cYJI/HxYZCz2A5x9Tnrg=="],
 
+    "@mistralai-capabilities/database-postgres": ["@mistralai-capabilities/database-postgres@0.1.71", "", {}, "sha512-yV+7+yGBH2JB71V+sJDAWT1+u0ij7GyrWSLXsf33P2wCp9DCd1L3zm/s/bO9007Jp21/bJMn5axgrfTZFrxmwQ=="],
+
     "@mistralai-capabilities/deployment-apps": ["@mistralai-capabilities/deployment-apps@0.1.71", "", {}, "sha512-j8EwAn884LJffuQLsb8DEa2XEK510KOfU6I6i1ScckwkYfR2rxlnb0QrYBzu/Lkeze0lh9LkkyKUiJr7gSxssg=="],
 
     "@mistralai-capabilities/deployment-apps-fastapi": ["@mistralai-capabilities/deployment-apps-fastapi@0.1.71", "", {}, "sha512-/piw4NvghdDJ+0xrImbqVz7ZYRf3CeZuxCvPPgUo+mFqOsGGNPxi9PXgIPyPHcMDicKLSbdfQXFM6s3Pon7jPw=="],
+
+    "@mistralai-capabilities/feature-fastapi-postgres": ["@mistralai-capabilities/feature-fastapi-postgres@0.1.71", "", {}, "sha512-MLfRm0BOasWA30sRa98aAASG3iNmw8iAZOx860L30uNNxX46Ky2ziL6ainrq/wrSekPa+hZf4cUu5J4AwUg58Q=="],
 
     "@mistralai-capabilities/feature-fastapi-tanstack-start": ["@mistralai-capabilities/feature-fastapi-tanstack-start@0.1.71", "", {}, "sha512-my1GywYDx3Evx1KUS6PiWtPdVHdfMqY3BoOH1WuLU9aodaBVARREg69ylh+fmI2atK16elU9dX/ojPV483H+zw=="],
 
